@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class AppDialogs {
   static Future<T?> showSmoothDialog<T>({
     required BuildContext context,
-    required Widget builder(BuildContext context),
+    required Widget Function(BuildContext context) builder,
   }) {
     return showGeneralDialog<T>(
       context: context,

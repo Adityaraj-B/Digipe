@@ -153,6 +153,8 @@ class OrderTracking {
   final double amountPaid;
   final String coveragePeriod;
   final String currencySymbol;
+  final String? planId;   // NEW
+  final int years;
 
   /// The lifecycle steps. Order matters — rendered top-to-bottom.
   final List<LifecycleStep> lifecycleSteps;
@@ -169,6 +171,8 @@ class OrderTracking {
     required this.amountPaid,
     required this.coveragePeriod,
     this.currencySymbol = 'Rs.',
+    this.planId,           // NEW
+    this.years = 1,
     required this.lifecycleSteps,
     this.invoiceUrl,
     this.policyDocumentUrl,
@@ -185,6 +189,8 @@ class OrderTracking {
       amountPaid: (json['amount_paid'] as num).toDouble(),
       coveragePeriod: json['coverage_period'] as String,
       currencySymbol: json['currency_symbol'] as String? ?? 'Rs.',
+      planId: json['plan_id'] as String?,                    // NEW
+      years: (json['years'] as num?)?.toInt() ?? 1,
       lifecycleSteps: (json['lifecycle_steps'] as List<dynamic>)
           .map((e) => LifecycleStep.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -201,6 +207,8 @@ class OrderTracking {
     'amount_paid': amountPaid,
     'coverage_period': coveragePeriod,
     'currency_symbol': currencySymbol,
+    'plan_id': planId,     // NEW
+    'years': years,
     'lifecycle_steps': lifecycleSteps.map((s) => s.toJson()).toList(),
     'invoice_url': invoiceUrl,
     'policy_document_url': policyDocumentUrl,
