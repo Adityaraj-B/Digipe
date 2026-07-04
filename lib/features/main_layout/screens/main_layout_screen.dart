@@ -236,8 +236,8 @@ class _MainLayoutViewState extends State<_MainLayoutView> {
         return const OrderTrackingScreen();
       case 3:
         return const ClaimsScreen();
-      case 4:
-        return const ProfileScreen();
+       case 4:
+         return const ProfileScreen();
       default:
         return const HomeScreen();
     }
@@ -284,7 +284,7 @@ class _MainLayoutViewState extends State<_MainLayoutView> {
             ),
             _NavItemData(icon: Icons.search_outlined, activeIcon: Icons.search, label: 'Track'),
             _NavItemData(icon: Icons.shield_outlined, activeIcon: Icons.shield, label: 'Claims'),
-            _NavItemData(icon: Icons.person_outline, activeIcon: Icons.person, label: 'Profile'),
+            // _NavItemData(icon: Icons.person_outline, activeIcon: Icons.person, label: 'Profile'),
           ],
         ),
       ),

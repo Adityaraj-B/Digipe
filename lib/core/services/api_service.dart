@@ -228,6 +228,14 @@ class ApiService {
     return policies.map((json) => OrderSummary.fromJson(json)).toList();
   }
 
+  Future<List<Map<String, dynamic>>> getMyPoliciesRaw() async {
+    if (!_useRealApi) return [];
+    final response = await _client.dio.get(ApiConstants.myPolicies);
+    final policiesData = response.data['data'];
+    final List policies = (policiesData is Map ? policiesData['policies'] : policiesData) ?? [];
+    return List<Map<String, dynamic>>.from(policies);
+  }
+
   Future<void> updateOrderStatus(String id, String status) async {
     if (!_useRealApi) return;
     await _client.dio.patch('${ApiConstants.adminOrders}/$id/status', data: {'status': status});
@@ -298,6 +306,28 @@ class ApiService {
     if (!_useRealApi) return {'_id': 'doc_mock_123', 'url': 'https://res.cloudinary.com/demo/image/upload/sample.jpg'};
     final response = await _client.upload(ApiConstants.upload, filePath);
     return response.data['data'] as Map<String, dynamic>;
+  }
+
+  // --- Document Downloads ---
+  Future<List<int>> downloadPolicyDocument(String policyId) async {
+    if (!_useRealApi) {
+      await Future.delayed(const Duration(seconds: 1));
+      return []; // Return mock bytes
+    }
+
+    // Uses ResponseType.bytes to correctly handle the PDF file stream
+    final response = await _client.dio.get<List<int>>(
+      '/api/policies/$policyId/document',
+      options: Options(
+        responseType: ResponseType.bytes,
+        receiveTimeout: const Duration(seconds: 30),
+      ),
+    );
+
+    if (response.data == null) {
+      throw Exception('Failed to download document');
+    }
+    return response.data!;
   }
 
   // --- Seeding Helpers (Admin Only) ---

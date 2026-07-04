@@ -281,8 +281,21 @@ class _RaiseClaimDialogState extends State<RaiseClaimDialog> {
     final invalid = _submitAttempted && _damageType == null;
     return DropdownButtonFormField<String>(
       initialValue: _damageType,
+      isDense: true,
+      isExpanded: true,
       decoration: _decoration(hint: 'Select damage type...', error: invalid ? 'Required' : null),
-      items: _kDamageTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+      items: _kDamageTypes
+          .map(
+            (t) => DropdownMenuItem(
+              value: t,
+              child: Text(
+                t,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          )
+          .toList(),
       onChanged: (v) => setState(() => _damageType = v),
     );
   }

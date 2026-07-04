@@ -338,6 +338,31 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (product != null) {
                     context.read<ProductBloc>().add(SelectProduct(product));
                   }
+                  Navigator.push(
+                    context,
+                    PageRouteBuilder(
+                      pageBuilder: (context, animation, secondaryAnimation) =>
+                          ProductScreen(product: product),
+                      transitionsBuilder:
+                          (context, animation, secondaryAnimation, child) {
+                        return SlideTransition(
+                          position: animation.drive(
+                            Tween(
+                              begin: const Offset(1.0, 0.0),
+                              end: Offset.zero,
+                            ).chain(
+                              CurveTween(
+                                curve: Curves.fastOutSlowIn,
+                              ),
+                            ),
+                          ),
+                          child: child,
+                        );
+                      },
+                      transitionDuration:
+                      const Duration(milliseconds: 500),
+                    ),
+                  );
                 },
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,

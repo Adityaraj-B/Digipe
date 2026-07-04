@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../claims/bloc/claims_bloc.dart';
+import '../../claims/services/raise_claim.dart';
 import '../../payment/payment_screen.dart';
 import '../bloc/order_tracking_bloc.dart';
 import '../service/order_tracking_model.dart';
@@ -160,6 +162,7 @@ class _OrderTrackingView extends StatelessWidget {
             _QuickActionsCard(order: order),
             const SizedBox(height: 16),
             const _HelpCard(),
+            const SizedBox(height: 50),
           ],
         ),
       ),
@@ -315,8 +318,12 @@ class _StatusBadge extends StatelessWidget {
       OrderStatus.pendingApproval => (const Color(0xFFFFF9E6), const Color(0xFFB5850B)),
       OrderStatus.underReview => (const Color(0xFFF0F6FF), const Color(0xFF2B78C5)),
       OrderStatus.paymentEligible => (const Color(0xFFE8F8EE), const Color(0xFF238643)),
+      OrderStatus.approved => (const Color(0xFFE8F8EE), const Color(0xFF238643)),
       OrderStatus.active => (const Color(0xFFE8F8EE), const Color(0xFF238643)),
+      OrderStatus.claimRaised => (const Color(0xFFFFF9E6), const Color(0xFFD97706)), // Amber
+      OrderStatus.claimApproved => (const Color(0xFF238643), Colors.white), // Solid Emerald
       OrderStatus.rejected => (const Color(0xFFFEF2F2), const Color(0xFF992727)),
+      OrderStatus.cancelled => (const Color(0xFFFEF2F2), const Color(0xFF992727)),
       OrderStatus.expired => (const Color(0xFFF5F5F5), const Color(0xFF666666)),
     };
 
@@ -325,13 +332,15 @@ class _StatusBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: fg.withValues(alpha :0.1)),
+        border: status == OrderStatus.claimApproved
+            ? null
+            : Border.all(color: fg.withValues(alpha: 0.1)),
       ),
       child: Text(
         status.displayLabel,
         style: TextStyle(
           fontSize: 11,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w800,
           color: fg,
           letterSpacing: 0.5,
         ),
@@ -457,7 +466,7 @@ class _StepIcon extends StatelessWidget {
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF238643).withValues(alpha :0.1),
+              color: const Color(0xFF238643).withValues(alpha: 0.1),
               blurRadius: 8,
               spreadRadius: 2,
             )
@@ -469,18 +478,33 @@ class _StepIcon extends StatelessWidget {
         width: 32,
         height: 32,
         decoration: BoxDecoration(
-          color: const Color(0xFFF0F6FF),
+          color: const Color(0xFF111111), // Next.js uses Dark Charcoal for current step
           shape: BoxShape.circle,
-          border: Border.all(color: const Color(0xFF2B78C5), width: 2.5),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF2B78C5).withValues(alpha :0.15),
+              color: const Color(0xFF111111).withValues(alpha: 0.15),
               blurRadius: 8,
               spreadRadius: 2,
             )
           ],
         ),
-        child: const Icon(Icons.access_time_filled_rounded, size: 14, color: Color(0xFF2B78C5)),
+        child: const Icon(Icons.access_time_filled_rounded, size: 14, color: Colors.white),
+      ),
+      LifecycleStepState.failed => Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: const Color(0xFF992727),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF992727).withValues(alpha: 0.15),
+              blurRadius: 8,
+              spreadRadius: 2,
+            )
+          ],
+        ),
+        child: const Center(child: Text('!', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
       ),
       LifecycleStepState.pending => Container(
         width: 32,
@@ -505,12 +529,57 @@ class _StepIcon extends StatelessWidget {
   }
 }
 
-class _QuickActionsCard extends StatelessWidget {
+class _QuickActionsCard extends StatefulWidget {
   final OrderTracking order;
   const _QuickActionsCard({required this.order});
 
-  Future<void> _proceedToPayment(BuildContext context) async {
-    if (order.planId == null || order.planId!.isEmpty) {
+  @override
+  State<_QuickActionsCard> createState() => _QuickActionsCardState();
+}
+
+class _QuickActionsCardState extends State<_QuickActionsCard> {
+  bool _isDownloading = false;
+
+  Future<void> _handleDownloadPolicy() async {
+    setState(() => _isDownloading = true);
+    try {
+      final apiService = context.read<ApiService>();
+
+      // Fetch the raw PDF bytes from the backend
+      await apiService.downloadPolicyDocument(widget.order.orderId);
+
+      // TODO: Implement file saving here using path_provider and open_filex
+      // Example:
+      // final dir = await getApplicationDocumentsDirectory();
+      // final file = File('${dir.path}/Policy_${widget.order.orderId}.pdf');
+      // await file.writeAsBytes(bytes);
+      // await OpenFilex.open(file.path);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Policy downloaded successfully!'),
+          backgroundColor: const Color(0xFF238643),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to download policy: $e'),
+          backgroundColor: const Color(0xFF992727),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isDownloading = false);
+    }
+  }
+
+  Future<void> _proceedToPayment() async {
+    if (widget.order.planId == null || widget.order.planId!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Missing plan details. Please try again from Orders.')),
       );
@@ -528,28 +597,28 @@ class _QuickActionsCard extends StatelessWidget {
     try {
       final apiService = context.read<ApiService>();
       final orderData = await apiService.createOrder(
-        applicationId: order.orderId,
-        planId: order.planId!,
+        applicationId: widget.order.orderId,
+        planId: widget.order.planId!,
       );
 
-      if (!context.mounted) return;
+      if (!mounted) return;
       Navigator.pop(context); // dismiss loading dialog
 
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => PaymentPreviewScreen(
-            product: order.policyType,
-            basePremium: order.amountPaid,
-            years: order.years,
-            planId: order.planId!,
-            applicationId: order.orderId,
+            product: widget.order.policyType,
+            basePremium: widget.order.amountPaid,
+            years: widget.order.years,
+            planId: widget.order.planId!,
+            applicationId: widget.order.orderId,
             orderData: orderData,
           ),
         ),
       );
     } catch (e) {
-      if (!context.mounted) return;
+      if (!mounted) return;
       Navigator.pop(context); // dismiss loading dialog
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Could not start payment: $e')),
@@ -573,43 +642,82 @@ class _QuickActionsCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
+
           _ActionButton(
-            icon: Icons.file_download_outlined,
-            label: 'Download Policy',
-            enabled: order.status.canDownloadPolicy,
-            onTap: () {},
+            icon: _isDownloading ? Icons.hourglass_bottom_rounded : Icons.file_download_outlined,
+            label: _isDownloading ? 'Downloading...' : 'Download Policy',
+            enabled: widget.order.status.canDownloadPolicy && !_isDownloading,
+            onTap: _handleDownloadPolicy,
           ),
           const SizedBox(height: 12),
+
           _ActionButton(
             icon: Icons.receipt_long_rounded,
             label: 'View Invoice',
-            enabled: order.status.canViewInvoice,
-            onTap: () {},
+            enabled: widget.order.status.canViewInvoice,
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Invoice viewer coming soon!')),
+              );
+            },
           ),
-          if (order.status == OrderStatus.paymentEligible) ...[
+
+          if (widget.order.status == OrderStatus.paymentEligible || widget.order.status == OrderStatus.approved) ...[
             const SizedBox(height: 12),
-            _PayNowButton(onTap: () => _proceedToPayment(context)), // was: () {}
+            _PayNowButton(onTap: _proceedToPayment),
           ],
+
+          if (widget.order.status == OrderStatus.active) ...[
+            const SizedBox(height: 16),
+            const Divider(color: Color(0xFFF0F0F0)),
+            const SizedBox(height: 16),
+            _RaiseClaimButton(onTap: () async {
+              // Open the RaiseClaimDialog
+              final bool? claimSubmitted = await showDialog<bool>(
+                context: context,
+                builder: (_) => BlocProvider.value(
+                  value: context.read<ClaimsBloc>(),
+                  child: RaiseClaimDialog(
+                    policyId: widget.order.orderId,
+                    policyNumber: widget.order.orderId,
+                    coverageAmount: widget.order.amountPaid,
+                  ),
+                ),
+              );
+
+              // If the claim was successfully submitted, trigger a refresh on the tracking screen
+              if (claimSubmitted == true && context.mounted) {
+                context.read<OrderTrackingBloc>().add(RefreshOrder(widget.order.orderId));
+              }
+            }),
+          ],
+
           const SizedBox(height: 20),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8F9FA),
+              color: widget.order.status == OrderStatus.claimRaised ? const Color(0xFFFFF9E6) : const Color(0xFFF8F9FA),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFF0F0F0)),
+              border: Border.all(
+                  color: widget.order.status == OrderStatus.claimRaised ? const Color(0xFFF5E4B5) : const Color(0xFFF0F0F0)
+              ),
             ),
             child: Row(
               children: [
-                const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF888888)),
+                Icon(
+                    widget.order.status == OrderStatus.claimRaised ? Icons.warning_amber_rounded : Icons.info_outline_rounded,
+                    size: 16,
+                    color: widget.order.status == OrderStatus.claimRaised ? const Color(0xFFD97706) : const Color(0xFF888888)
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    order.status.policyNotice,
-                    style: const TextStyle(
+                    widget.order.status.policyNotice,
+                    style: TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF666666),
+                      fontWeight: FontWeight.w600,
+                      color: widget.order.status == OrderStatus.claimRaised ? const Color(0xFFB5850B) : const Color(0xFF666666),
                       height: 1.4,
                     ),
                   ),
@@ -618,6 +726,52 @@ class _QuickActionsCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RaiseClaimButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _RaiseClaimButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEF4444), // Destructive Red
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFEF4444).withValues(alpha: 0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              )
+            ],
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.warning_amber_rounded, size: 18, color: Colors.white),
+              SizedBox(width: 8),
+              Text(
+                'Raise Claim',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -484,71 +484,81 @@ class PremiumEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: iconBg,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 4),
-                boxShadow: [
-                  BoxShadow(
-                    color: iconFg.withValues(alpha: 0.1),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Icon(icon, size: 36, color: iconFg),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF444444),
-                height: 1.5,
-              ),
-            ),
-            if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 32),
-              GestureDetector(
-                onTap: onAction,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: AppColors.ink,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.ink.withValues(alpha: 0.2),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: iconBg,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 4),
+                        boxShadow: [
+                          BoxShadow(
+                            color: iconFg.withValues(alpha: 0.1),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Icon(icon, size: 36, color: iconFg),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      message,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF444444),
+                        height: 1.5,
+                      ),
+                    ),
+                    if (actionLabel != null && onAction != null) ...[
+                      const SizedBox(height: 32),
+                      GestureDetector(
+                        onTap: onAction,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: AppColors.ink,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.ink.withValues(alpha: 0.2),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            actionLabel!,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
                       ),
                     ],
-                  ),
-                  child: Text(
-                    actionLabel!,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
+                  ],
                 ),
               ),
-            ],
-          ],
-        ),
-      ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

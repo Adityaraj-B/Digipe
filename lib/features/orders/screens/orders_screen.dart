@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:dio/dio.dart';
+import '../../../core/services/api_service.dart';
 import '../../../core/utils/amount_modifier.dart';
 import '../../../core/utils/date_modifier.dart';
+import '../../payment/payment_screen.dart';
 import '../bloc/orders_bloc.dart';
-import '../../../core/models/api_models.dart';
 import '../../../core/widgets/Cards.dart';
 import '../../track/screens/track_screen.dart';
+import '../../claims/screens/claims_screen.dart';
 
 class OrdersScreen extends StatelessWidget {
   const OrdersScreen({super.key});
@@ -32,9 +35,14 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
 
   final List<String> _statusOptions = [
     'All Status',
-    'CONFIRMED',
-    'CANCELLED',
-    'Pending',
+    'Active',
+    'Claim Raised',
+    'Claim Approved',
+    'Pending Approval',
+    'Approved - Pay Now',
+    'Rejected',
+    'Expired',
+    'Cancelled',
   ];
 
   @override
@@ -54,26 +62,34 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
 
   (Color, Color) _statusColors(String status) {
     switch (status.toUpperCase()) {
-      case 'CONFIRMED':
       case 'ACTIVE':
         return (AppColors.successBg, AppColors.successFg);
-      case 'CANCELLED':
+      case 'CLAIM RAISED':
+        return (const Color(0xFFFFF3CD), const Color(0xFFD97706));
+      case 'CLAIM APPROVED':
+        return (const Color(0xFF059669), Colors.white);
+      case 'PENDING APPROVAL':
+        return (const Color(0xFFFFF3CD), const Color(0xFFF59E0B));
+      case 'APPROVED - PAY NOW':
+      case 'APPROVED':
+        return (const Color(0xFFD1FAE5), const Color(0xFF059669));
       case 'REJECTED':
+      case 'CANCELLED':
         return (AppColors.dangerBg, AppColors.dangerFg);
-      case 'PENDING':
-        return (AppColors.warnBg, AppColors.warnFg);
+      case 'EXPIRED':
+        return (const Color(0xFFFFF3CD), const Color(0xFFF59E0B));
       default:
         return (AppColors.neutralBg, AppColors.neutralFg);
     }
   }
 
-  Future<void> _confirmDeleteOrder(OrderSummary order) async {
+  Future<void> _confirmDeleteOrder(UnifiedOrder order) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Delete Order'),
         content: Text(
-          'Are you sure you want to delete order "${order.orderId}"? '
+          'Are you sure you want to delete order "${order.id}"? '
               'This will remove it from your dashboard view.',
         ),
         actions: [
@@ -93,20 +109,83 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
     );
 
     if (confirmed == true && mounted) {
-      context.read<OrdersBloc>().add(DeleteOrderLocally(order.orderId));
+      context.read<OrdersBloc>().add(DeleteOrderLocally(order.id, order.dbId));
     }
   }
 
-  void _openPolicyDetails(OrderSummary order) {
+  void _openPolicyDetails(UnifiedOrder order) {
     final trackingId = (order.applicationId != null && order.applicationId!.isNotEmpty)
         ? order.applicationId!
-        : order.orderId; // fallback if backend didn't send it
+        : order.id;
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => OrderTrackingScreen(orderId: trackingId),
       ),
     );
+  }
+
+  Future<void> _processPayment(BuildContext context, UnifiedOrder order) async {
+    if (order.planId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Missing plan details. Cannot proceed.')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: AppColors.inkStrong),
+      ),
+    );
+
+    try {
+      final apiService = context.read<ApiService>();
+      final createdOrder = await apiService.createOrder(
+        applicationId: order.dbId,
+        planId: order.planId!,
+      );
+
+      if (!context.mounted) return;
+      Navigator.pop(context); // Close loader
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PaymentPreviewScreen(
+            product: order.product,
+            basePremium: (createdOrder['subtotal'] ?? 0).toDouble(),
+            years: int.tryParse(order.years) ?? 1,
+            planId: order.planId!,
+            applicationId: order.dbId,
+            orderData: createdOrder,
+          ),
+        ),
+      );
+    } on DioException catch (e) {
+      if (!context.mounted) return;
+      Navigator.pop(context); // Close loader
+      final message = e.response?.data?['message']?.toString() ?? '';
+
+      if (e.response?.statusCode == 400 && message.toLowerCase().contains('approved')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Your application is pending admin approval. You will be notified once approved.')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message.isNotEmpty ? message : 'Order creation failed.')),
+        );
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      Navigator.pop(context); // Close loader
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
   }
 
   @override
@@ -261,7 +340,7 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
               ...state.orders.map(
                     (order) => Padding(
                   padding: const EdgeInsets.only(bottom: 16),
-                  child: _buildOrderCard(order),
+                  child: _buildOrderCard(context, order),
                 ),
               ),
               _buildPaginationFooter(
@@ -278,78 +357,72 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
     );
   }
 
-  Widget _buildOrderCard(OrderSummary order) {
+  Widget _buildOrderCard(BuildContext context, UnifiedOrder order) {
     final (bg, fg) = _statusColors(order.status);
+    final hasProduct = order.product.trim().isNotEmpty;
+    final isPayNow = order.status == 'Approved - Pay Now';
+    final isActive = order.status == 'Active';
+    final isDownloadable = isActive || order.status == 'Claim Approved';
 
     return PremiumCard(
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(24),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-
-          /// HEADER
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                width: 46,
-                height: 46,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
                   color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.ink.withValues(alpha: 0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: const Icon(
                   Icons.shield_outlined,
-                  size: 22,
+                  size: 24,
                   color: AppColors.ink,
                 ),
               ),
-
-              const SizedBox(width: 14),
-
+              const SizedBox(width: 16),
               Expanded(
-                child: Builder(
-                  builder: (_) {
-                    final hasProduct = order.product.trim().isNotEmpty;
-
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-
-                        if (hasProduct)
-                          Text(
-                            order.product,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.ink,
-                            ),
-                          ),
-
-                        if (hasProduct)
-                          const SizedBox(height: 3),
-
-                        Text(
-                          "Order #${order.orderId}",
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: hasProduct ? 12 : 15,
-                            fontWeight:
-                            hasProduct ? FontWeight.w500 : FontWeight.w600,
-                            color: AppColors.bodyGrey,
-                          ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (hasProduct)
+                      Text(
+                        order.product,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.3,
+                          color: AppColors.ink,
                         ),
-                      ],
-                    );
-                  },
+                      ),
+                    if (hasProduct) const SizedBox(height: 4),
+                    Text(
+                      "Order #${order.id}",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: hasProduct ? 13 : 15,
+                        fontWeight: hasProduct ? FontWeight.w500 : FontWeight.w600,
+                        color: AppColors.bodyGrey,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-
               const SizedBox(width: 12),
-
               StatusChip(
                 label: order.status,
                 background: bg,
@@ -365,164 +438,156 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: AppColors.border.withValues(alpha: .8),
+                color: AppColors.border.withValues(alpha: 0.5),
               ),
             ),
             child: IntrinsicHeight(
               child: Row(
                 children: [
                   Expanded(
-                    child: _buildStatItem(
-                      value: formatAmount(order.amount),
-                      label: "Amount Paid",
-                      isPrimary: true,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: _buildStatItem(
+                        value: formatAmount(order.amount),
+                        label: "Amount Paid",
+                        isPrimary: true,
+                      ),
                     ),
                   ),
-
-                  const VerticalDivider(
+                  VerticalDivider(
                     width: 1,
                     thickness: 1,
-                    color: AppColors.border,
+                    color: AppColors.border.withValues(alpha: 0.5),
                   ),
-
                   Expanded(
-                    child: _buildStatItem(
-                      value: formatDate(order.date),
-                      label: "Purchased",
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 22),
-
-          const FadedDivider(),
-
-          InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: () => _openPolicyDetails(order),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(
-                vertical: 18,
-              ),
-              child: Row(
-                children: [
-
-                  Icon(
-                    Icons.visibility_outlined,
-                    size: 20,
-                  ),
-
-                  SizedBox(width: 14),
-
-                  Expanded(
-                    child: Text(
-                      "View Policy Details",
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: _buildStatItem(
+                        value: formatDate(order.date),
+                        label: "Purchased",
                       ),
                     ),
                   ),
-
-                  Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 16,
-                    color: AppColors.bodyGrey,
-                  ),
                 ],
               ),
             ),
           ),
 
+          const SizedBox(height: 24),
           const FadedDivider(),
+          const SizedBox(height: 16),
 
-          Padding(
-            padding: const EdgeInsets.only(top: 14),
-            child: Row(
+          if (isPayNow)
+            Row(
               children: [
-
                 Expanded(
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () {},
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 10),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-
-                          Icon(
-                            Icons.download_rounded,
-                            size: 18,
-                          ),
-
-                          SizedBox(width: 8),
-
-                          Text(
-                            "Invoice",
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                  child: FilledButton.icon(
+                    onPressed: () => _processPayment(context, order),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.ink,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
+                      elevation: 0,
+                    ),
+                    icon: const Icon(Icons.payment_rounded, size: 18),
+                    label: const Text(
+                      "Pay Now",
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                     ),
                   ),
                 ),
-
-                Container(
-                  width: 1,
-                  height: 22,
-                  color: AppColors.border,
+                const SizedBox(width: 12),
+                IconButton(
+                  onPressed: () => _confirmDeleteOrder(order),
+                  style: IconButton.styleFrom(
+                    backgroundColor: const Color(0xFFB23A3A).withValues(alpha: 0.08),
+                    foregroundColor: const Color(0xFFB23A3A),
+                    padding: const EdgeInsets.all(14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(Icons.delete_outline_rounded, size: 22),
                 ),
-
+              ],
+            )
+          else ...[
+            Row(
+              children: [
                 Expanded(
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () => _confirmDeleteOrder(order),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 10),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-
-                          Icon(
-                            Icons.delete_outline_rounded,
-                            size: 18,
-                            color: Color(0xFFB23A3A),
-                          ),
-
-                          SizedBox(width: 8),
-
-                          Text(
-                            "Delete",
-                            style: TextStyle(
-                              color: Color(0xFFB23A3A),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                  child: TextButton.icon(
+                    onPressed: () => _openPolicyDetails(order),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.ink,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
+                    ),
+                    icon: const Icon(Icons.visibility_outlined, size: 18),
+                    label: const Text(
+                      "Track",
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+                Container(width: 1, height: 24, color: AppColors.border.withValues(alpha: 0.5)),
+                Expanded(
+                  child: TextButton.icon(
+                    onPressed: isDownloadable ? () {} : null,
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.ink,
+                      disabledForegroundColor: AppColors.labelGrey,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(Icons.download_rounded, size: 18),
+                    label: const Text(
+                      "Download",
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+                Container(width: 1, height: 24, color: AppColors.border.withValues(alpha: 0.5)),
+                Expanded(
+                  child: TextButton.icon(
+                    onPressed: () => _confirmDeleteOrder(order),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFFB23A3A),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                    label: const Text(
+                      "Delete",
+                      style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
               ],
             ),
-          ),
 
-          if (order.canClaim) ...[
-            const SizedBox(height: 18),
-            GradientCtaButton(
-              icon: Icons.verified_user_outlined,
-              label: "Claim Warranty",
-              colors: const [
-                Color(0xFF2D2D2D),
-                Color(0xFF111111),
-              ],
-              onTap: () {},
-            ),
+            if (isActive) ...[
+              const SizedBox(height: 16),
+              GradientCtaButton(
+                icon: Icons.warning_amber_rounded,
+                label: "Raise Claim",
+                colors: const [Color(0xFFD32F2F), Color(0xFF8B0000)],
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ClaimsScreen()),
+                  );
+                },
+              ),
+            ],
           ],
         ],
       ),
@@ -530,7 +595,6 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
   }
 
   Widget _buildPaginationFooter(int currentCount, int totalCount, int currentPage) {
-    // Dynamic Pagination: Completely hide if there are 10 or fewer total orders.
     if (totalCount <= 10) {
       return const SizedBox.shrink();
     }

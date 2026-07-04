@@ -74,9 +74,9 @@ class PaymentService {
       dev.log('[Payment] DEBUG — paymentSessionId length: ${paymentSessionId.length}');
       dev.log('[Payment] DEBUG — cashfreeOrderId raw value: "$cashfreeOrderId"');
 
-      // Switched to PRODUCTION to align with live production credentials
+      // Note: Reverted to SANDBOX to align with your current backend TEST keys
       final session = CFSessionBuilder()
-          .setEnvironment(CFEnvironment.PRODUCTION)
+          .setEnvironment(CFEnvironment.SANDBOX)
           .setPaymentSessionId(paymentSessionId)
           .setOrderId(cashfreeOrderId)
           .build();

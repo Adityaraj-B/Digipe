@@ -21,6 +21,11 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
   String? _typeOfDamage;
   bool _consentChecked = false;
 
+  // New state variables for tracking filters
+  String _searchQuery = '';
+  String _filterStatus = 'All Status';
+  final List<String> _filterOptions = ['All Status', 'Pending', 'Approved', 'Rejected'];
+
   final TextEditingController _dateController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
 
@@ -307,11 +312,18 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                 DropdownButtonFormField<String>(
                   key: ValueKey(_selectedPolicyId ?? 'policy_dropdown'),
                   initialValue: _selectedPolicyId,
+                  isDense: true,
+                  isExpanded: true,
                   decoration: _inputDecoration('Choose an active policy'),
                   items: data.eligiblePolicies.map((policy) {
                     return DropdownMenuItem(
                       value: policy.id,
-                      child: Text(policy.name, style: const TextStyle(fontSize: 14)),
+                      child: Text(
+                        policy.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 14),
+                      ),
                     );
                   }).toList(),
                   onChanged: data.eligiblePolicies.isEmpty
@@ -355,11 +367,18 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                 DropdownButtonFormField<String>(
                   key: ValueKey(_typeOfDamage ?? 'damage_dropdown'),
                   initialValue: _typeOfDamage,
+                  isDense: true,
+                  isExpanded: true,
                   decoration: _inputDecoration('Select damage type..'),
                   items: _damageTypes.map((type) {
                     return DropdownMenuItem(
                       value: type,
-                      child: Text(type, style: const TextStyle(fontSize: 14)),
+                      child: Text(
+                        type,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 14),
+                      ),
                     );
                   }).toList(),
                   onChanged: (value) => setState(() => _typeOfDamage = value),
@@ -621,48 +640,233 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
   }
 
   Widget _buildTrackClaimsTab(ClaimsData data) {
-    if (data.claimHistory.isEmpty) {
-      return const PremiumEmptyState(
-        icon: Icons.assignment_outlined,
-        iconBg: AppColors.neutralBg,
-        iconFg: AppColors.neutralFg,
-        message: "You haven't filed any claims yet.",
-      );
-    }
+    // 1. Apply Search and Filter logic
+    final filteredClaims = data.claimHistory.where((claim) {
+      final matchesSearch = claim.claimId.toLowerCase().contains(_searchQuery.toLowerCase());
+      final matchesFilter = _filterStatus == 'All Status' || claim.status == _filterStatus;
+      return matchesSearch && matchesFilter;
+    }).toList();
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
-      itemCount: data.claimHistory.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 16),
-      itemBuilder: (context, index) {
-        final claim = data.claimHistory[index];
-        final (bg, fg) = _statusColors(claim.status);
+    return Column(
+      children: [
+        // 2. Search and Filter UI
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isCompact = constraints.maxWidth < 480;
 
-        return PremiumCard(
-          padding: const EdgeInsets.all(20),
+              final searchField = TextField(
+                onChanged: (val) => setState(() => _searchQuery = val),
+                decoration: _inputDecoration('Search Claim ID...').copyWith(
+                  prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.bodyGrey),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+              );
+
+              final filterField = DropdownButtonFormField<String>(
+                initialValue: _filterStatus,
+                isDense: true,
+                isExpanded: true,
+                decoration: _inputDecoration('').copyWith(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                ),
+                icon: const Icon(Icons.filter_list, size: 18),
+                items: _filterOptions.map((status) {
+                  return DropdownMenuItem(
+                    value: status,
+                    child: Text(
+                      status,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (val) => setState(() => _filterStatus = val ?? 'All Status'),
+              );
+
+              if (isCompact) {
+                return Column(
+                  children: [
+                    searchField,
+                    const SizedBox(height: 12),
+                    filterField,
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: searchField,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 1,
+                    child: filterField,
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+
+        // 3. Filtered List
+        Expanded(
+          child: filteredClaims.isEmpty
+              ? const PremiumEmptyState(
+            icon: Icons.search_off_rounded,
+            iconBg: AppColors.neutralBg,
+            iconFg: AppColors.neutralFg,
+            message: "No claims found matching your criteria.",
+          )
+              : ListView.separated(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
+            itemCount: filteredClaims.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 16),
+            itemBuilder: (context, index) {
+              final claim = filteredClaims[index];
+              final (bg, fg) = _statusColors(claim.status);
+
+              return GestureDetector(
+                onTap: () => _showClaimDetailsModal(claim), // Open read-only details
+                child: PremiumCard(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: MetaItem(label: 'CLAIM ID', value: claim.claimId)),
+                          StatusChip(label: claim.status, background: bg, foreground: fg),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      const FadedDivider(),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(child: MetaItem(label: 'Policy', value: claim.policyName)),
+                          Expanded(child: MetaItem(label: 'Date Filed', value: claim.date)),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text('View Details', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.inkStrong)),
+                          SizedBox(width: 4),
+                          Icon(Icons.arrow_forward_ios_rounded, size: 10, color: AppColors.inkStrong),
+                        ],
+                      )
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 4. Read-Only Details Modal (Customer Facing)
+  void _showClaimDetailsModal(ClaimHistoryItem claim) {
+    final (bg, fg) = _statusColors(claim.status);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Expanded(child: MetaItem(label: 'CLAIM ID', value: claim.claimId)),
+                  const Text('Claim Details', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.ink)),
                   StatusChip(label: claim.status, background: bg, foreground: fg),
                 ],
               ),
-              const SizedBox(height: 20),
-              const FadedDivider(),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(child: MetaItem(label: 'Policy', value: claim.policyName)),
-                  Expanded(child: MetaItem(label: 'Date Filed', value: claim.date)),
-                ],
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    MetaItem(label: 'CLAIM ID', value: claim.claimId),
+                    const SizedBox(height: 16),
+                    MetaItem(label: 'LINKED POLICY', value: claim.policyName),
+                    const SizedBox(height: 16),
+                    MetaItem(label: 'DATE FILED', value: claim.date),
+                  ],
+                ),
               ),
+              const SizedBox(height: 24),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: claim.status == 'Pending' ? AppColors.warnBg : AppColors.neutralBg,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: claim.status == 'Pending' ? AppColors.warnFg.withValues(alpha: 0.2) : AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      claim.status == 'Pending' ? Icons.access_time_rounded : Icons.info_outline_rounded,
+                      color: claim.status == 'Pending' ? AppColors.warnFg : AppColors.bodyGrey,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        claim.status == 'Pending'
+                            ? 'Your claim is currently under review by our team. We will notify you once a decision is made.'
+                            : 'This claim has been processed.',
+                        style: TextStyle(
+                            fontSize: 13,
+                            color: claim.status == 'Pending' ? AppColors.warnFg : AppColors.bodyGrey,
+                            height: 1.4,
+                            fontWeight: FontWeight.w500
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.ink,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  child: const Text('Close', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                ),
+              )
             ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
