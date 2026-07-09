@@ -1,9 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../services/api_service.dart';
+import '../repositories/auth_repository.dart';
 import '../models/api_models.dart';
 import '../utils/auth_utils.dart';
 import '../utils/auth_event_bus.dart' as bus;
@@ -39,6 +38,26 @@ class AuthSkipRequested extends AuthEvent {}
 class AuthLogoutRequested extends AuthEvent {}
 class AuthTokenExpired extends AuthEvent {}
 
+class AuthUpdateProfileRequested extends AuthEvent {
+  final String? name;
+  final String? email;
+  final String? house;
+  final String? area;
+  final String? city;
+  final String? state;
+  final String? pin;
+
+  AuthUpdateProfileRequested({
+    this.name,
+    this.email,
+    this.house,
+    this.area,
+    this.city,
+    this.state,
+    this.pin,
+  });
+}
+
 // --- States ---
 abstract class AuthState {}
 class AuthInitial extends AuthState {}
@@ -47,7 +66,10 @@ class OtpSending extends AuthState {}
 class AwaitingOtp extends AuthState {
   final String identifier; // normalized phone
   final int attemptsLeft;
-  AwaitingOtp(this.identifier, {this.attemptsLeft = 5});
+  final String? pendingName;
+  final String? pendingEmail;
+
+  AwaitingOtp(this.identifier, {this.attemptsLeft = 5, this.pendingName, this.pendingEmail});
 }
 class Verifying extends AuthState {}
 class Authenticated extends AuthState {
@@ -67,12 +89,12 @@ class AuthSkipped extends AuthState {}
 
 // --- BLoC ---
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-  final ApiService _apiService;
+  final AuthRepository _authRepository;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   StreamSubscription? _eventBusSub;
 
-  AuthBloc({required ApiService apiService})
-      : _apiService = apiService,
+  AuthBloc({required AuthRepository authRepository})
+      : _authRepository = authRepository,
         super(AuthInitial()) {
     on<AuthCheckRequested>(_onAuthCheck);
     on<SendOtpRequested>(_onSendOtp);
@@ -82,6 +104,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthSkipRequested>((event, emit) => emit(AuthSkipped()));
     on<AuthLogoutRequested>(_onLogout);
     on<AuthTokenExpired>((event, emit) => emit(AuthIdle()));
+    on<AuthUpdateProfileRequested>(_onUpdateProfile);
 
     // SECTION 1: Listen to global auth-expired event
     _eventBusSub = bus.AuthEventBus.instance.stream.listen((busEvent) {
@@ -113,8 +136,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(OtpSending());
     try {
       final normalized = AuthUtils.normalizePhoneNumber(event.phone);
-      await _apiService.sendOtp(normalized);
-      emit(AwaitingOtp(normalized));
+      final identifier = await _authRepository.requestOtp(normalized);
+      emit(AwaitingOtp(identifier));
     } on UserNotFoundException catch (e) {
       emit(AuthUserNotFound(event.phone, message: e.message));
     } catch (e) {
@@ -126,35 +149,52 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(OtpSending());
     try {
       final rawDigits = event.phone.replaceAll(RegExp(r'[^0-9]'), '');
-      final data = await _apiService.register(fullName: event.fullName, phone: rawDigits, email: event.email);
+      final data = await _authRepository.register(
+          fullName: event.fullName, phone: rawDigits, email: event.email);
       final serverIdentifier = data['identifier']?.toString() ?? rawDigits;
-      emit(AwaitingOtp(serverIdentifier));
+      emit(AwaitingOtp(serverIdentifier,
+          pendingName: event.fullName, pendingEmail: event.email));
     } catch (e) {
       emit(AuthError(e.toString()));
     }
   }
 
-  Future<void> _onVerifyOtp(VerifyOtpRequested event, Emitter<AuthState> emit) async {
+  Future<void> _onVerifyOtp(
+      VerifyOtpRequested event, Emitter<AuthState> emit) async {
     if (state is! AwaitingOtp) return;
     final currentState = state as AwaitingOtp;
-    
+
     emit(Verifying());
     try {
-      final data = await _apiService.verifyOtp(currentState.identifier, event.code);
-      final token = data['token'];
-      final user = AuthUser.fromJson(data['user']);
-      
+      final result = await _authRepository.login(currentState.identifier, event.code);
+
+      AuthUser user = result.user;
+
+      // If we have pending registration details that weren't yet reflected in the login response,
+      // override them here so the profile UI is instantly updated.
+      if (currentState.pendingName != null || currentState.pendingEmail != null) {
+        user = user.copyWith(
+          name: currentState.pendingName ?? user.name,
+          email: currentState.pendingEmail ?? user.email,
+        );
+      }
+
       // SECTION 1: Fix the Auth Interceptor (Write Side matching digipe_jwt)
-      await _storage.write(key: 'digipe_jwt', value: token);
-      await _storage.write(key: 'digipe_user', value: jsonEncode(data['user']));
-      
+      await _storage.write(key: 'digipe_jwt', value: result.token);
+      await _storage.write(key: 'digipe_user', value: jsonEncode(user.toJson()));
+
       emit(Authenticated(user));
     } catch (e) {
       final newAttempts = currentState.attemptsLeft - 1;
       if (newAttempts <= 0) {
         emit(AuthError("Too many failed attempts. Please request a new OTP."));
       } else {
-        emit(AwaitingOtp(currentState.identifier, attemptsLeft: newAttempts));
+        emit(AwaitingOtp(
+          currentState.identifier,
+          attemptsLeft: newAttempts,
+          pendingName: currentState.pendingName,
+          pendingEmail: currentState.pendingEmail,
+        ));
       }
     }
   }
@@ -164,13 +204,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     try {
       await _storage.write(key: 'digipe_jwt', value: event.token);
       final devUser = AuthUser(id: 'dev', name: 'Dev User', email: 'dev@digipe.in', phone: '0000000000', role: 'admin');
-      await _storage.write(key: 'digipe_user', value: jsonEncode({
-        'id': devUser.id,
-        'name': devUser.name,
-        'email': devUser.email,
-        'mobileNumber': devUser.phone,
-        'role': devUser.role,
-      }));
+      await _storage.write(key: 'digipe_user', value: jsonEncode(devUser.toJson()));
       emit(Authenticated(devUser));
     } catch (e) {
       emit(AuthError("Failed to set dev token"));
@@ -184,6 +218,26 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     await _storage.delete(key: 'digipe_cached_policies');
     
     emit(AuthIdle());
+  }
+
+  Future<void> _onUpdateProfile(AuthUpdateProfileRequested event, Emitter<AuthState> emit) async {
+    if (state is Authenticated) {
+      final currentUser = (state as Authenticated).user;
+      final updatedUser = currentUser.copyWith(
+        name: event.name,
+        email: event.email,
+        house: event.house,
+        area: event.area,
+        city: event.city,
+        state: event.state,
+        pin: event.pin,
+      );
+      
+      // Persist the updated user object
+      await _storage.write(key: 'digipe_user', value: jsonEncode(updatedUser.toJson()));
+      
+      emit(Authenticated(updatedUser));
+    }
   }
 
   @override
