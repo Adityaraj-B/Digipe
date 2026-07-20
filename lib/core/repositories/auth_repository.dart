@@ -1,3 +1,4 @@
+import 'dart:developer' as dev;
 import 'package:dio/dio.dart';
 import '../models/api_models.dart';
 
@@ -13,14 +14,10 @@ class SurefyLoginResult {
 
 class UserNotFoundException implements Exception {
   final String message;
-
   UserNotFoundException({this.message = 'User not registered. Please register first.'});
 }
 
 class AuthRepository {
-  // Talk to OUR OWN backend, not Surefy directly. The backend already
-  // wraps Surefy internally (see auth.service.js / surefyAuth.client.js)
-  // and issues its own JWT — that's the token every other API call expects.
   static const String _baseUrl = 'https://api.digipe.in/api';
   static const String _apiKey = 'di_live_8a3bab71513c47c73023b3e66fcec29b0679dc7891a30ed7';
 
@@ -37,14 +34,27 @@ class AuthRepository {
     ),
   );
 
-  Future<SurefyLoginResult> login(String phone, String otp) async {
+  // MATCH THE WEBSITE: Accept both phone and email dynamically
+  Future<SurefyLoginResult> login({
+    required String code,
+    String? phone,
+    String? email,
+  }) async {
+    dev.log('Attempting verify-otp with phone: $phone, email: $email', name: 'AuthRepository');
+
+    // Build payload exactly how the backend expects it
+    final data = <String, dynamic>{
+      'code': code,
+    };
+    if (phone != null && phone.isNotEmpty) data['mobileNumber'] = phone;
+    if (email != null && email.isNotEmpty) data['email'] = email;
+
     final response = await _client.post(
       '/auth/verify-otp',
-      data: {
-        'mobileNumber': phone,
-        'code': otp, // backend expects "code", not "otp"
-      },
+      data: data,
     );
+
+    dev.log('verify-otp raw response: ${response.data}', name: 'AuthRepository');
 
     final payload = _unwrapData(response.data);
     final token = _extractToken(payload);
@@ -61,18 +71,22 @@ class AuthRepository {
   }
 
   Future<String> requestOtp(String phone) async {
+    dev.log('Requesting OTP for: $phone', name: 'AuthRepository');
     try {
+      final isEmail = phone.contains('@');
       final response = await _client.post(
         '/auth/send-otp',
         data: {
-          'mobileNumber': phone,
+          if (isEmail) 'email': phone else 'mobileNumber': phone,
         },
       );
+      dev.log('send-otp raw response: ${response.data}', name: 'AuthRepository');
 
       final payload = _unwrapData(response.data);
       final identifier = _extractIdentifier(payload);
       return identifier.isNotEmpty ? identifier : phone;
     } on DioException catch (e) {
+      dev.log('requestOtp DioError: ${e.response?.statusCode}, ${e.response?.data}', name: 'AuthRepository');
       if (e.response?.statusCode == 404 ||
           (e.response?.data is Map && e.response?.data['message']?.toString().contains('not found') == true)) {
         throw UserNotFoundException();
@@ -86,15 +100,16 @@ class AuthRepository {
     required String phone,
     required String email,
   }) async {
+    dev.log('Registering user: $fullName, $phone, $email', name: 'AuthRepository');
     final response = await _client.post(
       '/auth/register',
       data: {
         'fullName': fullName,
-        'mobileNumber': phone, // Changed from 'phone' to 'mobileNumber'
+        'phone': phone,
         'email': email,
       },
     );
-
+    dev.log('register raw response: ${response.data}', name: 'AuthRepository');
     return _unwrapData(response.data);
   }
 
@@ -133,7 +148,6 @@ class AuthRepository {
         return candidate;
       }
     }
-
     return '';
   }
 
@@ -143,6 +157,7 @@ class AuthRepository {
       data['sessionId'],
       data['requestId'],
       data['otpSessionId'],
+      data['email'],
       data['phone'],
       data['mobileNumber'],
     ];
@@ -152,7 +167,6 @@ class AuthRepository {
         return candidate;
       }
     }
-
     return '';
   }
 
@@ -172,7 +186,6 @@ class AuthRepository {
         return Map<String, dynamic>.from(candidate);
       }
     }
-
     return data;
   }
 }

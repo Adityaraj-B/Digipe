@@ -1,17 +1,12 @@
 class AuthUtils {
-  /// Takes a raw string from user input and returns E.164 format for the backend.
-  /// - Exactly 10 digits -> prepends '+91'
-  /// - Already has '+' -> returns as is
-  /// - Otherwise -> prepends '+'
+  /// Returns raw 10-digit number for the backend.
   static String normalizePhoneNumber(String raw) {
     final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digits.length == 10 && !raw.startsWith('+')) {
-      return '+91$digits';
+    if (digits.length > 10) {
+      // If it has +91 or 91, take only the last 10 digits
+      return digits.substring(digits.length - 10);
     }
-    if (raw.startsWith('+')) {
-      return raw;
-    }
-    return '+$raw';
+    return digits;
   }
 
   /// Basic email regex validation

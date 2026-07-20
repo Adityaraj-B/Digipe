@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -65,12 +66,19 @@ class AuthInitial extends AuthState {}
 class AuthIdle extends AuthState {}
 class OtpSending extends AuthState {}
 class AwaitingOtp extends AuthState {
-  final String identifier; // normalized phone
+  final String verificationIdentifier;
+  final String phoneNumber;
   final int attemptsLeft;
   final String? pendingName;
   final String? pendingEmail;
 
-  AwaitingOtp(this.identifier, {this.attemptsLeft = 5, this.pendingName, this.pendingEmail});
+  AwaitingOtp({
+    required this.verificationIdentifier,
+    required this.phoneNumber,
+    this.attemptsLeft = 5,
+    this.pendingName,
+    this.pendingEmail,
+  });
 }
 class Verifying extends AuthState {}
 class Authenticated extends AuthState {
@@ -107,7 +115,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthTokenExpired>((event, emit) => emit(AuthIdle()));
     on<AuthUpdateProfileRequested>(_onUpdateProfile);
 
-    // SECTION 1: Listen to global auth-expired event
     _eventBusSub = bus.AuthEventBus.instance.stream.listen((busEvent) {
       if (busEvent == bus.AuthEvent.tokenExpired) {
         add(AuthTokenExpired());
@@ -136,9 +143,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _onSendOtp(SendOtpRequested event, Emitter<AuthState> emit) async {
     emit(OtpSending());
     try {
-      final normalized = AuthUtils.normalizePhoneNumber(event.phone);
-      await _authRepository.requestOtp(normalized);
-      emit(AwaitingOtp(normalized));
+      final isEmail = event.phone.contains('@');
+      final normalized = isEmail ? event.phone.trim() : AuthUtils.normalizePhoneNumber(event.phone);
+
+      debugPrint('[AuthBloc] Requesting OTP for: $normalized');
+      final identifier = await _authRepository.requestOtp(normalized);
+
+      debugPrint('[AuthBloc] OTP Requested. Server Identifier: $identifier');
+
+      emit(AwaitingOtp(
+        verificationIdentifier: identifier,
+        phoneNumber: normalized,
+      ));
     } on UserNotFoundException catch (e) {
       emit(AuthUserNotFound(event.phone, message: e.message));
     } catch (e) {
@@ -149,28 +165,38 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _onRegister(RegisterRequested event, Emitter<AuthState> emit) async {
     emit(OtpSending());
     try {
-      final rawDigits = event.phone.replaceAll(RegExp(r'[^0-9]'), '');
-      
+      final normalized = AuthUtils.normalizePhoneNumber(event.phone);
+      debugPrint('[AuthBloc] Registering user with phone: $normalized and email: ${event.email}');
+
       await _authRepository.register(
-          fullName: event.fullName, phone: rawDigits, email: event.email);
-      
-      final normalized = AuthUtils.normalizePhoneNumber(rawDigits);
-                               
-      emit(AwaitingOtp(normalized,
-          pendingName: event.fullName, pendingEmail: event.email));
+        fullName: event.fullName,
+        phone: normalized,
+        email: event.email,
+      );
+
+      // Force the verification identifier to be the email for registration
+      final verifyId = event.email;
+
+      debugPrint('[AuthBloc] Registration success. Verifying against email: $verifyId');
+
+      emit(AwaitingOtp(
+        verificationIdentifier: verifyId,
+        phoneNumber: normalized,
+        pendingName: event.fullName,
+        pendingEmail: event.email,
+      ));
     } on DioException catch (e) {
       final status = e.response?.statusCode;
       final serverData = e.response?.data;
-      
+      debugPrint('[AuthBloc] Registration failure: $status, body: $serverData');
+
       String? serverMsg;
       if (serverData is Map) {
         serverMsg = serverData['message']?.toString();
       }
-
       if (status == 409) {
         emit(AuthError(serverMsg ?? 'This number is already registered. Please log in instead.'));
       } else {
-        // If the backend returns "User not found" even here, we show it clearly
         emit(AuthError(serverMsg ?? 'Registration failed. Please try again.'));
       }
     } catch (e) {
@@ -185,14 +211,32 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     emit(Verifying());
     try {
-      final normalizedIdentifier =
-      AuthUtils.normalizePhoneNumber(currentState.identifier);
-      final result = await _authRepository.login(normalizedIdentifier, event.code);
+      String? phoneToSend;
+      String? emailToSend;
+
+      // Dynamically assign phone and email to mirror website behavior
+      if (currentState.phoneNumber.contains('@')) {
+        // User logged in using an email address
+        emailToSend = currentState.phoneNumber;
+      } else {
+        // User is registering, or logging in with a phone number
+        phoneToSend = currentState.phoneNumber;
+        emailToSend = currentState.pendingEmail;
+      }
+
+      debugPrint('[AuthBloc] Verifying OTP. Phone: $phoneToSend | Email: $emailToSend | Code: ${event.code}');
+
+      // Send both to backend so it perfectly matches the website flow
+      final result = await _authRepository.login(
+        code: event.code,
+        phone: phoneToSend,
+        email: emailToSend,
+      );
+
+      debugPrint('[AuthBloc] Verification successful');
 
       AuthUser user = result.user;
 
-      // If we have pending registration details that weren't yet reflected in the login response,
-      // override them here so the profile UI is instantly updated.
       if (currentState.pendingName != null || currentState.pendingEmail != null) {
         user = user.copyWith(
           name: currentState.pendingName ?? user.name,
@@ -200,18 +244,19 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         );
       }
 
-      // SECTION 1: Fix the Auth Interceptor (Write Side matching digipe_jwt)
       await _storage.write(key: 'digipe_jwt', value: result.token);
       await _storage.write(key: 'digipe_user', value: jsonEncode(user.toJson()));
 
       emit(Authenticated(user));
     } catch (e) {
+      debugPrint('[AuthBloc] Verification failed: $e');
       final newAttempts = currentState.attemptsLeft - 1;
       if (newAttempts <= 0) {
         emit(AuthError("Too many failed attempts. Please request a new OTP."));
       } else {
         emit(AwaitingOtp(
-          currentState.identifier,
+          verificationIdentifier: currentState.verificationIdentifier,
+          phoneNumber: currentState.phoneNumber,
           attemptsLeft: newAttempts,
           pendingName: currentState.pendingName,
           pendingEmail: currentState.pendingEmail,
@@ -237,7 +282,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     await _storage.delete(key: 'digipe_user');
     await _storage.delete(key: 'digipe_cached_orders');
     await _storage.delete(key: 'digipe_cached_policies');
-    
+
     emit(AuthIdle());
   }
 
@@ -253,10 +298,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         state: event.state,
         pin: event.pin,
       );
-      
-      // Persist the updated user object
+
       await _storage.write(key: 'digipe_user', value: jsonEncode(updatedUser.toJson()));
-      
+
       emit(Authenticated(updatedUser));
     }
   }

@@ -41,17 +41,16 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   void _onSubmit() {
-    final phone = _phoneController.text.trim();
-
-    if (phone.length != 10) {
-      _showError('Please enter a valid 10-digit mobile number');
-      return;
-    }
+    final identifier = _phoneController.text.trim();
 
     if (_isRegisterMode) {
       final name = _nameController.text.trim();
       final email = _emailController.text.trim();
 
+      if (identifier.length != 10 || !RegExp(r'^[0-9]+$').hasMatch(identifier)) {
+        _showError('Please enter a valid 10-digit mobile number');
+        return;
+      }
       if (name.length < 2) {
         _showError('Full Name must be at least 2 characters');
         return;
@@ -61,9 +60,13 @@ class _SignupScreenState extends State<SignupScreen> {
         return;
       }
 
-      context.read<AuthBloc>().add(RegisterRequested(fullName: name, phone: phone, email: email));
+      context.read<AuthBloc>().add(RegisterRequested(fullName: name, phone: identifier, email: email));
     } else {
-      context.read<AuthBloc>().add(SendOtpRequested(phone));
+      if (identifier.isEmpty) {
+        _showError('Please enter a mobile number or email');
+        return;
+      }
+      context.read<AuthBloc>().add(SendOtpRequested(identifier));
     }
   }
 
@@ -74,6 +77,12 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
+      listenWhen: (previous, current) {
+        if (current is AwaitingOtp && previous is Verifying) {
+          return false;
+        }
+        return true;
+      },
       listener: (context, state) {
         if (state is AwaitingOtp) {
           Navigator.push(
@@ -121,15 +130,11 @@ class _SignupScreenState extends State<SignupScreen> {
           bottom: false,
           child: LayoutBuilder(
             builder: (context, constraints) {
-              // Responsive metrics derived from the actual space available to
-              // this widget (accounts for width, height, and orientation).
               final width = constraints.maxWidth;
               final height = constraints.maxHeight;
               final isTablet = width >= 600;
-              final isShort = height < 700; // small/landscape phones
+              final isShort = height < 700;
 
-              // Scale factor for paddings/fonts, clamped so it never gets
-              // too tiny on small phones or too huge on tablets/desktop.
               final scale = (width / 390).clamp(0.85, 1.25);
 
               final heroMinHeight = (height * (isShort ? 0.30 : 0.38))
@@ -217,7 +222,7 @@ class _SignupScreenState extends State<SignupScreen> {
           Text(
             _isRegisterMode
                 ? 'Join India\'s most trusted solar insurance platform'
-                : 'Please enter your phone number to continue',
+                : 'Please enter your phone number or email to continue',
             style: TextStyle(color: Colors.grey, fontSize: 13 * scale),
           ),
           SizedBox(height: 24 * scale),
@@ -234,13 +239,15 @@ class _SignupScreenState extends State<SignupScreen> {
             SizedBox(height: 16 * scale),
           ],
 
-          _label('Phone Number', scale),
+          _label(_isRegisterMode ? 'Phone Number' : 'Phone Number or Email', scale),
           _textField(
             controller: _phoneController,
             focusNode: _phoneFocus,
-            hint: 'Enter 10-digit number',
-            keyboardType: TextInputType.phone,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
+            hint: _isRegisterMode ? 'Enter 10-digit number' : 'Enter mobile number or email',
+            keyboardType: _isRegisterMode ? TextInputType.phone : TextInputType.emailAddress,
+            inputFormatters: _isRegisterMode
+                ? [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)]
+                : [],
             nextFocus: _isRegisterMode ? _emailFocus : null,
             readOnly: _isRegisterMode,
             scale: scale,
