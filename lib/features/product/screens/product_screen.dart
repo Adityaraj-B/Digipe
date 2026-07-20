@@ -3,9 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../auth/screens/signup_screen.dart';
 import '../bloc/product_bloc.dart';
-import '../../../../core/bloc/auth_bloc.dart';
+import '../../auth/screens/bloc/auth_bloc.dart';
 import 'insurance_detail_screen.dart';
-import '../../../../core/services/notification_service.dart';
 import '../../../../core/models/api_models.dart';
 
 class ProductScreen extends StatefulWidget {
@@ -75,7 +74,7 @@ class _ProductViewState extends State<_ProductView> {
         );
         context.read<ProductBloc>().add(SelectPlan(matchingPlan));
       } catch (e) {
-        // Fallback if combination doesn't exist
+
       }
     }
   }
@@ -163,12 +162,9 @@ class _ProductViewState extends State<_ProductView> {
       body: BlocConsumer<ProductBloc, ProductState>(
         listener: (context, state) {
           if (state is ProductLoaded) {
-            // Trigger auto-selection only when the product ID changes
             if (_selectedForProductId != state.selectedProduct.id) {
-
               Plan? targetPlan = state.selectedPlan;
 
-              // If no plan is selected, find the absolute cheapest base plan to auto-select
               if (targetPlan == null && state.availablePlans.isNotEmpty) {
                 final sortedPlans = List<Plan>.from(state.availablePlans)
                   ..sort((a, b) => a.premium.compareTo(b.premium));
@@ -182,12 +178,10 @@ class _ProductViewState extends State<_ProductView> {
                   _selectedDuration = _extractDuration(targetPlan.name);
                 });
 
-                // Dispatch event to BLoC so the bottom bar renders
                 if (state.selectedPlan?.id != targetPlan.id) {
                   context.read<ProductBloc>().add(SelectPlan(targetPlan));
                 }
               } else {
-                // Failsafe in case there are no plans at all
                 setState(() {
                   _selectedForProductId = state.selectedProduct.id;
                 });
@@ -219,10 +213,14 @@ class _ProductViewState extends State<_ProductView> {
                         ),
                       );
                     },
-                    child: _buildScrollableContent(context, state),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 800),
+                        child: _buildScrollableContent(context, state),
+                      ),
+                    ),
                   ),
                 ),
-                // Only show sticky bar if a plan is actively selected
                 if (state.selectedPlan != null)
                   _buildStickyBottomBar(context, state),
               ],
@@ -335,7 +333,7 @@ class _ProductViewState extends State<_ProductView> {
           _buildInspectionNotice(),
           const SizedBox(height: 20),
           _buildBenefitsCard(product.features),
-          const SizedBox(height: 20), // Extra padding for scroll clearance
+          const SizedBox(height: 20),
         ],
       ),
     );
@@ -444,12 +442,14 @@ class _ProductViewState extends State<_ProductView> {
           ),
         ),
         const SizedBox(width: 12),
-        const Text(
-          '8,511 Ratings & 1,234 Reviews',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: Color(0xFF8E8E93),
+        const Flexible(
+          child: Text(
+            '8,511 Ratings & 1,234 Reviews',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF8E8E93),
+            ),
           ),
         ),
       ],
@@ -507,12 +507,14 @@ class _ProductViewState extends State<_ProductView> {
             children: [
               Icon(Icons.verified_user_outlined, size: 22, color: Color(0xFF1A1A1A)),
               SizedBox(width: 10),
-              Text(
-                'Coverage & Benefits',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A1A1A),
+              Flexible(
+                child: Text(
+                  'Coverage & Benefits',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A1A1A),
+                  ),
                 ),
               ),
             ],
@@ -556,13 +558,11 @@ class _ProductViewState extends State<_ProductView> {
     );
   }
 
-  /// The new sticky bottom bar containing both the pricing and the action button
   Widget _buildStickyBottomBar(BuildContext context, ProductLoaded state) {
     final plan = state.selectedPlan!;
     final safeBottom = MediaQuery.of(context).padding.bottom;
 
     return Container(
-      padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + safeBottom),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -576,87 +576,109 @@ class _ProductViewState extends State<_ProductView> {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + safeBottom),
+            child: Row(
               children: [
-                const Text(
-                  'Total Premium',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF8E8E93),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      'Rs. ${plan.premium.toStringAsFixed(0)}',
-                      style: const TextStyle(
-                        fontSize: 25,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF1A1A1A),
-                        height: 1,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
-                      child: Text(
-                        'Rs. ${(plan.premium * 1.1).toStringAsFixed(0)}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFFC7C7CC),
-                          decoration: TextDecoration.lineThrough,
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Total Premium',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF8E8E93),
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                'Rs. ${plan.premium.toStringAsFixed(0)}',
+                                style: const TextStyle(
+                                  fontSize: 25,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF1A1A1A),
+                                  height: 1,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 2),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  'Rs. ${(plan.premium * 1.1).toStringAsFixed(0)}',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFFC7C7CC),
+                                    decoration: TextDecoration.lineThrough,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  width: 140,
+                  height: 54,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      NotificationService.mediumImpact();
+                      _onCheckout(context, state);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1A1A1A),
+                      foregroundColor: Colors.white,
+                      elevation: 10,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
-                  ],
+                    child: const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.shield_outlined, size: 18),
+                          SizedBox(width: 8),
+                          Text(
+                            'Buy Now',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-          SizedBox(
-            width: 140,
-            height: 54,
-            child: ElevatedButton(
-            onPressed: () {
-              NotificationService.mediumImpact();
-              _onCheckout(context, state);
-            },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A1A1A),
-                foregroundColor: Colors.white,
-                elevation: 10,
-                // Reduced horizontal padding to prevent the 1.2px overflow
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.shield_outlined, size: 18),
-                  SizedBox(width: 8),
-                  Text(
-                    'Buy Now',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

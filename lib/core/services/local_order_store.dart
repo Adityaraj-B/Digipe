@@ -12,9 +12,25 @@ class LocalOrderStore {
   }
 
   static Future<void> hideOrder(String orderId) async {
+    if (orderId.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
     final ids = (prefs.getStringList(_key) ?? []).toSet();
     ids.add(orderId);
     await prefs.setStringList(_key, ids.toList());
+  }
+
+  static Future<void> showOrder(String orderId) async {
+    if (orderId.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final ids = (prefs.getStringList(_key) ?? []).toSet();
+    if (ids.contains(orderId)) {
+      ids.remove(orderId);
+      await prefs.setStringList(_key, ids.toList());
+    }
+  }
+
+  static Future<void> clearAllHidden() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_key);
   }
 }

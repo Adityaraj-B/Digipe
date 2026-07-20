@@ -161,7 +161,8 @@ class LifecycleStep {
 }
 
 class OrderTracking {
-  final String orderId;
+  final String orderId; // Human readable (e.g. applicationNumber or policyNumber)
+  final String dbId;    // MongoDB _id (Required for API calls like createOrder)
   final OrderStatus status;
   final String policyType;
   final DateTime purchaseDate;
@@ -176,6 +177,7 @@ class OrderTracking {
 
   const OrderTracking({
     required this.orderId,
+    required this.dbId,
     required this.status,
     required this.policyType,
     required this.purchaseDate,

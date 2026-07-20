@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../core/bloc/auth_bloc.dart';
+import '../../auth/screens/bloc/auth_bloc.dart';
 import '../../auth/screens/signup_screen.dart';
 import '../../orders/screens/orders_screen.dart';
 import '../../track/screens/track_screen.dart';
@@ -29,7 +29,6 @@ class _MainLayoutView extends StatefulWidget {
 }
 
 class _MainLayoutViewState extends State<_MainLayoutView> {
-  // Tracks the previously selected index so we can decide slide direction
   int _previousIndex = 0;
 
   @override
@@ -48,7 +47,6 @@ class _MainLayoutViewState extends State<_MainLayoutView> {
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
             layoutBuilder: (currentChild, previousChildren) {
-              // Stack children so the outgoing screen doesn't reflow layout
               return Stack(
                 alignment: Alignment.topCenter,
                 children: [
@@ -72,7 +70,6 @@ class _MainLayoutViewState extends State<_MainLayoutView> {
 
               final fadeAnimation = CurvedAnimation(
                 parent: animation,
-                // Fade completes earlier than slide for a snappier feel
                 curve: const Interval(0.0, 0.85, curve: Curves.easeOut),
                 reverseCurve: const Interval(0.0, 0.85, curve: Curves.easeIn),
               );
@@ -236,8 +233,8 @@ class _MainLayoutViewState extends State<_MainLayoutView> {
         return const OrderTrackingScreen();
       case 3:
         return const ClaimsScreen();
-       case 4:
-         return const ProfileScreen();
+      case 4:
+        return const ProfileScreen();
       default:
         return const HomeScreen();
     }
@@ -247,46 +244,59 @@ class _MainLayoutViewState extends State<_MainLayoutView> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Container(
-      margin: EdgeInsets.only(
+      padding: EdgeInsets.only(
         left: 20,
         right: 20,
         bottom: bottomPadding > 0 ? bottomPadding : 24,
       ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: _AnimatedNavBar(
+                    currentIndex: currentIndex,
+                    onTap: (index) {
+                      context.read<BottomNavBloc>().add(TabChanged(index));
+                    },
+                    items: const [
+                      _NavItemData(icon: Icons.home_outlined, activeIcon: Icons.home, label: 'Home'),
+                      _NavItemData(
+                        icon: Icons.description_outlined,
+                        activeIcon: Icons.description,
+                        label: 'Orders',
+                      ),
+                      _NavItemData(icon: Icons.search_outlined, activeIcon: Icons.search, label: 'Track'),
+                      _NavItemData(icon: Icons.shield_outlined, activeIcon: Icons.shield, label: 'Claims'),
+                      // _NavItemData(icon: Icons.person_outline, activeIcon: Icons.person, label: 'Profile'),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: _AnimatedNavBar(
-          currentIndex: currentIndex,
-          onTap: (index) {
-            context.read<BottomNavBloc>().add(TabChanged(index));
-          },
-          items: const [
-            _NavItemData(icon: Icons.home_outlined, activeIcon: Icons.home, label: 'Home'),
-            _NavItemData(
-              icon: Icons.description_outlined,
-              activeIcon: Icons.description,
-              label: 'Orders',
-            ),
-            _NavItemData(icon: Icons.search_outlined, activeIcon: Icons.search, label: 'Track'),
-            _NavItemData(icon: Icons.shield_outlined, activeIcon: Icons.shield, label: 'Claims'),
-            // _NavItemData(icon: Icons.person_outline, activeIcon: Icons.person, label: 'Profile'),
-          ],
-        ),
       ),
     );
   }
@@ -299,8 +309,6 @@ class _NavItemData {
   const _NavItemData({required this.icon, required this.activeIcon, required this.label});
 }
 
-/// Drop-in replacement for BottomNavigationBar with smooth per-item
-/// scale/color/icon-swap animations instead of an abrupt state change.
 class _AnimatedNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -376,8 +384,6 @@ class _AnimatedNavBar extends StatelessWidget {
   }
 }
 
-/// Wraps any child with a subtle, fluid press-down scale effect using
-/// GestureDetector + AnimatedScale, giving every tap tactile feedback.
 class _PressableScale extends StatefulWidget {
   final Widget child;
   final VoidCallback onTap;

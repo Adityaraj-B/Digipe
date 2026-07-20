@@ -20,8 +20,6 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
   DateTime? _incidentDate;
   String? _typeOfDamage;
   bool _consentChecked = false;
-
-  // New state variables for tracking filters
   String _searchQuery = '';
   String _filterStatus = 'All Status';
   final List<String> _filterOptions = ['All Status', 'Pending', 'Approved', 'Rejected'];
@@ -120,41 +118,45 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.hairline,
-                borderRadius: BorderRadius.circular(2),
+        child: Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.hairline,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.camera_alt_outlined, color: AppColors.ink),
-              title: const Text('Take a Photo', style: TextStyle(fontWeight: FontWeight.w600)),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.camera, index);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined, color: AppColors.ink),
-              title: const Text('Choose Photo from Gallery', style: TextStyle(fontWeight: FontWeight.w600)),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.gallery, index);
-              },
-            ),
-            const SizedBox(height: 16),
-          ],
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined, color: AppColors.ink),
+                title: const Text('Take a Photo', style: TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.camera, index);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined, color: AppColors.ink),
+                title: const Text('Choose Photo from Gallery', style: TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.gallery, index);
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );
@@ -298,106 +300,113 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
         _consentChecked &&
         _imageFiles[0] != null;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          PremiumCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _FieldLabel('Select Policy *'),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  key: ValueKey(_selectedPolicyId ?? 'policy_dropdown'),
-                  initialValue: _selectedPolicyId,
-                  isDense: true,
-                  isExpanded: true,
-                  decoration: _inputDecoration('Choose an active policy'),
-                  items: data.eligiblePolicies.map((policy) {
-                    return DropdownMenuItem(
-                      value: policy.id,
-                      child: Text(
-                        policy.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 14),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 600;
+        final isTiny = constraints.maxWidth < 360;
+
+        return SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(isCompact ? 16 : 32, 24, isCompact ? 16 : 32, 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              PremiumCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _FieldLabel('Select Policy *'),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      key: ValueKey(_selectedPolicyId ?? 'policy_dropdown'),
+                      initialValue: _selectedPolicyId,
+                      isDense: true,
+                      isExpanded: true,
+                      decoration: _inputDecoration('Choose an active policy'),
+                      items: data.eligiblePolicies.map((policy) {
+                        return DropdownMenuItem(
+                          value: policy.id,
+                          child: Text(
+                            policy.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: data.eligiblePolicies.isEmpty
+                          ? null
+                          : (value) => setState(() => _selectedPolicyId = value),
+                    ),
+                    if (data.eligiblePolicies.isEmpty) ...[
+                      const SizedBox(height: 8),
+                      const Text(
+                        'You have no active policies eligible for a claim.',
+                        style: TextStyle(fontSize: 12, color: AppColors.dangerFg),
                       ),
-                    );
-                  }).toList(),
-                  onChanged: data.eligiblePolicies.isEmpty
-                      ? null
-                      : (value) => setState(() => _selectedPolicyId = value),
-                ),
-                if (data.eligiblePolicies.isEmpty) ...[
-                  const SizedBox(height: 8),
-                  const Text(
-                    'You have no active policies eligible for a claim.',
-                    style: TextStyle(fontSize: 12, color: AppColors.dangerFg),
-                  ),
-                ],
-                const SizedBox(height: 20),
-                const _FieldLabel('Date of Damage *'),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _dateController,
-                  readOnly: true,
-                  decoration: _inputDecoration('Select damage date').copyWith(
-                    suffixIcon: const Icon(Icons.calendar_today_outlined, size: 18, color: AppColors.bodyGrey),
-                  ),
-                  onTap: () async {
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now(),
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime.now(),
-                    );
-                    if (date != null) {
-                      setState(() {
-                        _incidentDate = date;
-                        _dateController.text = '${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}';
-                      });
-                    }
-                  },
-                ),
-                const SizedBox(height: 20),
-                const _FieldLabel('Type of Damage *'),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  key: ValueKey(_typeOfDamage ?? 'damage_dropdown'),
-                  initialValue: _typeOfDamage,
-                  isDense: true,
-                  isExpanded: true,
-                  decoration: _inputDecoration('Select damage type..'),
-                  items: _damageTypes.map((type) {
-                    return DropdownMenuItem(
-                      value: type,
-                      child: Text(
-                        type,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 14),
+                    ],
+                    const SizedBox(height: 20),
+                    const _FieldLabel('Date of Damage *'),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _dateController,
+                      readOnly: true,
+                      decoration: _inputDecoration('Select damage date').copyWith(
+                        suffixIcon: const Icon(Icons.calendar_today_outlined, size: 18, color: AppColors.bodyGrey),
                       ),
-                    );
-                  }).toList(),
-                  onChanged: (value) => setState(() => _typeOfDamage = value),
-                ),
-                const SizedBox(height: 24),
-                const _FieldLabel('Upload Damage Photos (Photo 1 Compulsory, 2-5 Optional) *'),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: List.generate(5, (index) {
-                    final file = _imageFiles[index];
-                    final isCompulsory = index == 0;
-                    return Expanded(
-                      child: GestureDetector(
-                        onTap: () => _showAttachmentOptions(index),
-                        child: Padding(
-                          padding: EdgeInsets.only(right: index < 4 ? 8 : 0),
-                          child: AspectRatio(
-                            aspectRatio: 1,
+                      onTap: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now(),
+                        );
+                        if (date != null) {
+                          setState(() {
+                            _incidentDate = date;
+                            _dateController.text = '${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}';
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    const _FieldLabel('Type of Damage *'),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      key: ValueKey(_typeOfDamage ?? 'damage_dropdown'),
+                      initialValue: _typeOfDamage,
+                      isDense: true,
+                      isExpanded: true,
+                      decoration: _inputDecoration('Select damage type..'),
+                      items: _damageTypes.map((type) {
+                        return DropdownMenuItem(
+                          value: type,
+                          child: Text(
+                            type,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (value) => setState(() => _typeOfDamage = value),
+                    ),
+                    const SizedBox(height: 24),
+                    const _FieldLabel('Upload Damage Photos (Photo 1 Compulsory, 2-5 Optional) *'),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      alignment: WrapAlignment.start,
+                      children: List.generate(5, (index) {
+                        final file = _imageFiles[index];
+                        final isCompulsory = index == 0;
+                        final boxSize = isTiny ? (constraints.maxWidth - 60) / 2 : 72.0;
+
+                        return GestureDetector(
+                          onTap: () => _showAttachmentOptions(index),
+                          child: SizedBox(
+                            width: boxSize,
+                            height: boxSize,
                             child: Container(
                               decoration: BoxDecoration(
                                 color: file != null ? Colors.transparent : (isCompulsory && file == null ? AppColors.dangerBg.withValues(alpha: 0.2) : AppColors.surface),
@@ -420,227 +429,228 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                                       child: GestureDetector(
                                         onTap: () => setState(() => _imageFiles[index] = null),
                                         child: Container(
-                                          padding: const EdgeInsets.all(2),
+                                          padding: const EdgeInsets.all(4),
                                           decoration: const BoxDecoration(
                                             color: Colors.black54,
                                             shape: BoxShape.circle,
                                           ),
-                                          child: const Icon(Icons.close, size: 10, color: Colors.white),
+                                          child: const Icon(Icons.close, size: 12, color: Colors.white),
                                         ),
                                       ),
                                     )
                                   ],
                                 ),
                               )
-                                  : Container(
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: isCompulsory && file == null ? AppColors.dangerFg.withValues(alpha: 0.5) : AppColors.border,
-                                    style: BorderStyle.none,
-                                  ),
-                                  borderRadius: BorderRadius.circular(10),
+                                  : CustomPaint(
+                                painter: DashedBorderPainter(
+                                  color: isCompulsory ? AppColors.dangerFg.withValues(alpha: 0.5) : AppColors.border,
                                 ),
-                                child: CustomPaint(
-                                  painter: DashedBorderPainter(
-                                    color: isCompulsory ? AppColors.dangerFg.withValues(alpha: 0.5) : AppColors.border,
-                                  ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        '+${index + 1}',
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      '+${index + 1}',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: isCompulsory ? AppColors.dangerFg : AppColors.ink,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    if (isCompulsory)
+                                      const Text(
+                                        'Req',
                                         style: TextStyle(
-                                          fontSize: 14,
-                                          color: isCompulsory ? AppColors.dangerFg : AppColors.ink,
-                                          fontWeight: FontWeight.w600,
+                                          fontSize: 9,
+                                          color: AppColors.dangerFg,
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      if (isCompulsory)
-                                        const Text(
-                                          'Req',
-                                          style: TextStyle(
-                                            fontSize: 9,
-                                            color: AppColors.dangerFg,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
+                                  ],
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-                const SizedBox(height: 20),
-                const _FieldLabel('Upload Damage Video (Optional)'),
-                const SizedBox(height: 8),
-                GestureDetector(
-                  onTap: _pickVideo,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(14),
+                        );
+                      }),
                     ),
-                    child: CustomPaint(
-                      painter: DashedBorderPainter(color: AppColors.border),
-                      child: Padding(
+                    const SizedBox(height: 20),
+                    const _FieldLabel('Upload Damage Video (Optional)'),
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onTap: _pickVideo,
+                      child: Container(
+                        width: double.infinity,
                         padding: const EdgeInsets.symmetric(vertical: 24),
-                        child: _videoFile != null
-                            ? Column(
-                          children: [
-                            const Icon(Icons.video_file_outlined, size: 28, color: AppColors.successFg),
-                            const SizedBox(height: 8),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
-                              child: Text(
-                                _videoFile!.path.split('/').last,
-                                style: const TextStyle(fontSize: 13, color: AppColors.ink, fontWeight: FontWeight.w600),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: CustomPaint(
+                          painter: DashedBorderPainter(color: AppColors.border),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                            child: _videoFile != null
+                                ? Column(
+                              children: [
+                                const Icon(Icons.video_file_outlined, size: 28, color: AppColors.successFg),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _videoFile!.path.split('/').last,
+                                  style: const TextStyle(fontSize: 13, color: AppColors.ink, fontWeight: FontWeight.w600),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 8),
+                                GestureDetector(
+                                  onTap: () => setState(() => _videoFile = null),
+                                  child: const Text('Remove Video', style: TextStyle(fontSize: 12, color: AppColors.dangerFg, fontWeight: FontWeight.w600)),
+                                ),
+                              ],
+                            )
+                                : const Column(
+                              children: [
+                                Icon(Icons.videocam_outlined, size: 24, color: AppColors.bodyGrey),
+                                SizedBox(height: 8),
+                                Text('Upload Damage Video', style: TextStyle(fontSize: 13, color: AppColors.ink, fontWeight: FontWeight.w600)),
+                                SizedBox(height: 4),
+                                Text('MP4, WebM, MOV (Max 100MB)', style: TextStyle(fontSize: 11, color: AppColors.bodyGrey)),
+                              ],
                             ),
-                            const SizedBox(height: 8),
-                            GestureDetector(
-                              onTap: () => setState(() => _videoFile = null),
-                              child: const Text('Remove Video', style: TextStyle(fontSize: 12, color: AppColors.dangerFg, fontWeight: FontWeight.w600)),
-                            ),
-                          ],
-                        )
-                            : const Column(
-                          children: [
-                            Icon(Icons.videocam_outlined, size: 24, color: AppColors.bodyGrey),
-                            SizedBox(height: 8),
-                            Text('Upload Damage Video', style: TextStyle(fontSize: 13, color: AppColors.ink, fontWeight: FontWeight.w600)),
-                            SizedBox(height: 4),
-                            Text('MP4, WebM, MOV (Max 100MB)', style: TextStyle(fontSize: 11, color: AppColors.bodyGrey)),
-                          ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const _FieldLabel('Explain Reason / Details *'),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _descController,
-                  maxLines: 4,
-                  onChanged: (_) => setState(() {}),
-                  decoration: _inputDecoration('Provide details about the damage incident..'),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: Checkbox(
-                        value: _consentChecked,
-                        onChanged: (val) => setState(() => _consentChecked = val ?? false),
-                        activeColor: AppColors.dangerFg,
-                        side: const BorderSide(color: AppColors.border, width: 1.5),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                      ),
+                    const SizedBox(height: 20),
+                    const _FieldLabel('Explain Reason / Details *'),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _descController,
+                      maxLines: 4,
+                      onChanged: (_) => setState(() {}),
+                      decoration: _inputDecoration('Provide details about the damage incident..'),
                     ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        'I confirm that all given details are correct and the uploaded photos accurately represent the damage. *',
-                        style: TextStyle(fontSize: 12, color: AppColors.bodyGrey, height: 1.4),
-                      ),
+                    const SizedBox(height: 20),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: Checkbox(
+                            value: _consentChecked,
+                            onChanged: (val) => setState(() => _consentChecked = val ?? false),
+                            activeColor: AppColors.dangerFg,
+                            side: const BorderSide(color: AppColors.border, width: 1.5),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'I confirm that all given details are correct and the uploaded photos accurately represent the damage. *',
+                            style: TextStyle(fontSize: 12, color: AppColors.bodyGrey, height: 1.4),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      _dateController.clear();
-                      _descController.clear();
-                      setState(() {
-                        _selectedPolicyId = null;
-                        _incidentDate = null;
-                        _typeOfDamage = null;
-                        _consentChecked = false;
-                        _imageFiles.fillRange(0, 5, null);
-                        _videoFile = null;
-                      });
-                      _tabController.animateTo(1);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.surface,
-                      foregroundColor: AppColors.ink,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: const BorderSide(color: AppColors.border),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: const Text('Cancel', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                  ),
-                ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: SizedBox(
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: canSubmit
-                        ? () {
-                      final List<String> paths = [];
-                      for (var file in _imageFiles) {
-                        if (file != null) paths.add(file.path);
-                      }
-                      if (_videoFile != null) paths.add(_videoFile!.path);
-
-                      BlocProvider.of<ClaimsBloc>(context).add(
-                        SubmitClaimEvent(
-                          policyId: _selectedPolicyId!,
-                          incidentDate: _incidentDate,
-                          typeOfDamage: _typeOfDamage,
-                          description: _descController.text.trim(),
-                          claimAmount: 1000,
-                          evidencePaths: paths,
-                        ),
-                      );
-                    }
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF8A8A),
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: const Color(0xFFFF8A8A).withValues(alpha: 0.5),
-                      disabledForegroundColor: Colors.white.withValues(alpha: 0.7),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      elevation: 0,
-                    ),
-                    child: const Text('Confirm Claim', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                  ),
-                ),
+              const SizedBox(height: 20),
+              isTiny
+                  ? Column(
+                children: [
+                  _buildCancelButton(),
+                  const SizedBox(height: 12),
+                  _buildConfirmButton(canSubmit),
+                ],
+              )
+                  : Row(
+                children: [
+                  Expanded(child: _buildCancelButton()),
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildConfirmButton(canSubmit)),
+                ],
               ),
+              const SizedBox(height: 50),
             ],
           ),
-          const SizedBox(height: 50),
-        ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCancelButton() {
+    return SizedBox(
+      height: 52,
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: () {
+          _dateController.clear();
+          _descController.clear();
+          setState(() {
+            _selectedPolicyId = null;
+            _incidentDate = null;
+            _typeOfDamage = null;
+            _consentChecked = false;
+            _imageFiles.fillRange(0, 5, null);
+            _videoFile = null;
+          });
+          _tabController.animateTo(1);
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.surface,
+          foregroundColor: AppColors.ink,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: AppColors.border),
+          ),
+          elevation: 0,
+        ),
+        child: const Text('Cancel', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+      ),
+    );
+  }
+
+  Widget _buildConfirmButton(bool canSubmit) {
+    return SizedBox(
+      height: 52,
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: canSubmit
+            ? () {
+          final List<String> paths = [];
+          for (var file in _imageFiles) {
+            if (file != null) paths.add(file.path);
+          }
+          if (_videoFile != null) paths.add(_videoFile!.path);
+
+          BlocProvider.of<ClaimsBloc>(context).add(
+            SubmitClaimEvent(
+              policyId: _selectedPolicyId!,
+              incidentDate: _incidentDate,
+              typeOfDamage: _typeOfDamage,
+              description: _descController.text.trim(),
+              claimAmount: 1000,
+              evidencePaths: paths,
+            ),
+          );
+        }
+            : null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFFF8A8A),
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: const Color(0xFFFF8A8A).withValues(alpha: 0.5),
+          disabledForegroundColor: Colors.white.withValues(alpha: 0.7),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          elevation: 0,
+        ),
+        child: const Text('Confirm Claim', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
       ),
     );
   }
 
   Widget _buildTrackClaimsTab(ClaimsData data) {
-    // 1. Apply Search and Filter logic
     final filteredClaims = data.claimHistory.where((claim) {
       final matchesSearch = claim.claimId.toLowerCase().contains(_searchQuery.toLowerCase());
       final matchesFilter = _filterStatus == 'All Status' || claim.status == _filterStatus;
@@ -649,9 +659,8 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
 
     return Column(
       children: [
-        // 2. Search and Filter UI
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
           child: LayoutBuilder(
             builder: (context, constraints) {
               final isCompact = constraints.maxWidth < 480;
@@ -698,22 +707,14 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
 
               return Row(
                 children: [
-                  Expanded(
-                    flex: 2,
-                    child: searchField,
-                  ),
+                  Expanded(flex: 2, child: searchField),
                   const SizedBox(width: 12),
-                  Expanded(
-                    flex: 1,
-                    child: filterField,
-                  ),
+                  Expanded(flex: 1, child: filterField),
                 ],
               );
             },
           ),
         ),
-
-        // 3. Filtered List
         Expanded(
           child: filteredClaims.isEmpty
               ? const PremiumEmptyState(
@@ -723,7 +724,7 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
             message: "No claims found matching your criteria.",
           )
               : ListView.separated(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 40),
             itemCount: filteredClaims.length,
             separatorBuilder: (_, __) => const SizedBox(height: 16),
             itemBuilder: (context, index) {
@@ -731,7 +732,7 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
               final (bg, fg) = _statusColors(claim.status);
 
               return GestureDetector(
-                onTap: () => _showClaimDetailsModal(claim), // Open read-only details
+                onTap: () => _showClaimDetailsModal(claim),
                 child: PremiumCard(
                   padding: const EdgeInsets.all(20),
                   child: Column(
@@ -773,7 +774,6 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
     );
   }
 
-  // 4. Read-Only Details Modal (Customer Facing)
   void _showClaimDetailsModal(ClaimHistoryItem claim) {
     final (bg, fg) = _statusColors(claim.status);
 
@@ -781,11 +781,12 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
       context: context,
       backgroundColor: Colors.white,
       isScrollControlled: true,
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -794,7 +795,10 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Claim Details', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.ink)),
+                  const Flexible(
+                    child: Text('Claim Details', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.ink)),
+                  ),
+                  const SizedBox(width: 12),
                   StatusChip(label: claim.status, background: bg, foreground: fg),
                 ],
               ),
@@ -826,6 +830,7 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                   border: Border.all(color: claim.status == 'Pending' ? AppColors.warnFg.withValues(alpha: 0.2) : AppColors.border),
                 ),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
                       claim.status == 'Pending' ? Icons.access_time_rounded : Icons.info_outline_rounded,

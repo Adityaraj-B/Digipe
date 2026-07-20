@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'core/bloc/auth_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'features/auth/screens/bloc/auth_bloc.dart';
 import 'core/repositories/auth_repository.dart';
 import 'core/repositories/orders_repository.dart';
 import 'core/repositories/product_repository.dart';
@@ -16,13 +18,32 @@ import 'features/product/bloc/product_bloc.dart';
 import 'package:flutter/foundation.dart';
 import 'package:safe_device/safe_device.dart';
 import 'core/widgets/tampered_device_warning.dart';
+import 'core/widgets/splash_screen.dart';
 import 'core/utils/error_scrubber.dart';
 import 'core/services/notification_service.dart';
 
+// Geofencing Imports
+import 'features/geofencing/services/geofence_api_service.dart';
+import 'features/geofencing/services/geofence_event_handler.dart';
+import 'features/geofencing/services/geofence_manager.dart';
+import 'features/geofencing/services/geofence_notification_handler.dart';
+import 'features/geofencing/screens/store_offer_screen.dart';
+
+// Voucher Imports
+import 'features/vouchers/services/voucher_service.dart';
+import 'features/vouchers/bloc/voucher_bloc.dart';
+import 'features/vouchers/bloc/redemption_bloc.dart';
+import 'features/vouchers/screens/voucher_catalog_screen.dart';
+import 'features/vouchers/screens/voucher_history_screen.dart';
+
+// Global Navigator Key for Deep Linking
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   await NotificationService.init();
+  final prefs = await SharedPreferences.getInstance();
 
   // SECTION 6: Root/Jailbreak and Mock Location Detection (Release only)
   if (!kDebugMode) {
@@ -43,6 +64,21 @@ void main() async {
   // Network & Services
   final apiClient = ApiClient();
   final apiService = ApiService(apiClient);
+
+  // Geofencing Services
+  final geofenceApiService = GeofenceApiService(apiClient.dio);
+  final geofenceEventHandler = GeofenceEventHandler(geofenceApiService, prefs);
+  final geofenceManager = GeofenceManager(geofenceApiService, geofenceEventHandler);
+  final geofenceNotificationHandler = GeofenceNotificationHandler(navigatorKey);
+
+  // Voucher Service
+  final voucherService = VoucherService(apiClient.dio);
+
+  // Initialize Geofencing & Notifications
+  geofenceNotificationHandler.initialize();
+  if (!kIsWeb) {
+    geofenceManager.initializeTracelet().catchError((e) => debugPrint('Tracelet init failed: $e'));
+  }
 
   // Repositories
   final authRepo = AuthRepository();
@@ -74,10 +110,16 @@ void main() async {
         RepositoryProvider.value(value: productRepo),
         RepositoryProvider.value(value: claimsRepo),
         RepositoryProvider<ApiService>.value(value: apiService),
+        RepositoryProvider<GeofenceApiService>.value(value: geofenceApiService),
+        RepositoryProvider<GeofenceManager>.value(value: geofenceManager),
+        RepositoryProvider<GeofenceEventHandler>.value(value: geofenceEventHandler),
+        RepositoryProvider<VoucherService>.value(value: voucherService),
       ],
       child: MultiBlocProvider(
         providers: [
-          BlocProvider(create: (context) => AuthBloc(apiService: apiService)..add(AuthCheckRequested())),
+          BlocProvider(
+            create: (context) => AuthBloc(authRepository: context.read<AuthRepository>())..add(AuthCheckRequested()),
+          ),
           BlocProvider(create: (context) => OrdersBloc(apiService: apiService)),
           BlocProvider(
             create: (context) => ProductBloc(apiService: apiService)..add(LoadProducts()),
@@ -86,6 +128,12 @@ void main() async {
             create: (context) => ClaimsBloc(
               apiService: apiService,
             ),
+          ),
+          BlocProvider(
+            create: (context) => VoucherBloc(voucherService: voucherService),
+          ),
+          BlocProvider(
+            create: (context) => RedemptionBloc(voucherService: voucherService),
           ),
         ],
         child: const MyApp(),
@@ -146,6 +194,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'DIGIPe',
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -164,6 +213,24 @@ class MyApp extends StatelessWidget {
           },
         ),
       ),
+      onGenerateRoute: (settings) {
+        if (settings.name == '/store-offer') {
+          final args = settings.arguments as Map<String, dynamic>?;
+          return MaterialPageRoute(
+            builder: (context) => StoreOfferScreen(
+              storeId: args?['storeId'] ?? '',
+              couponId: args?['couponId'],
+            ),
+          );
+        }
+        if (settings.name == '/vouchers') {
+          return MaterialPageRoute(builder: (_) => const VoucherCatalogScreen());
+        }
+        if (settings.name == '/vouchers/history') {
+          return MaterialPageRoute(builder: (_) => const VoucherHistoryScreen());
+        }
+        return null;
+      },
       home: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
           return AnimatedSwitcher(
@@ -193,13 +260,7 @@ class MyApp extends StatelessWidget {
       return const MainLayoutScreen(key: ValueKey('main'));
     }
     if (state is AuthInitial) {
-      return const Scaffold(
-        key: ValueKey('loading'),
-        backgroundColor: Color(0xFF0D0D0D),
-        body: Center(
-          child: CircularProgressIndicator(color: Colors.orange),
-        ),
-      );
+      return const SplashScreen(key: ValueKey('loading'));
     }
     return const SignupScreen(key: ValueKey('signup'));
   }

@@ -6,6 +6,13 @@ class AuthUser {
   final String email;
   final String phone;
   final String role;
+  
+  // Optional location details synced from forms
+  final String? house;
+  final String? area;
+  final String? city;
+  final String? state;
+  final String? pin;
 
   AuthUser({
     required this.id,
@@ -13,6 +20,11 @@ class AuthUser {
     required this.email,
     required this.phone,
     required this.role,
+    this.house,
+    this.area,
+    this.city,
+    this.state,
+    this.pin,
   });
 
   factory AuthUser.fromJson(Map<String, dynamic> json) => AuthUser(
@@ -21,7 +33,51 @@ class AuthUser {
     email: json['email'] ?? '',
     phone: json['mobileNumber'] ?? json['phone'] ?? '',
     role: json['role'] ?? 'user',
+    house: json['house'],
+    area: json['area'],
+    city: json['city'],
+    state: json['state'],
+    pin: json['pin'],
   );
+
+  Map<String, dynamic> toJson() => {
+    '_id': id,
+    'name': name,
+    'email': email,
+    'mobileNumber': phone,
+    'role': role,
+    'house': house,
+    'area': area,
+    'city': city,
+    'state': state,
+    'pin': pin,
+  };
+
+  AuthUser copyWith({
+    String? id,
+    String? name,
+    String? email,
+    String? phone,
+    String? role,
+    String? house,
+    String? area,
+    String? city,
+    String? state,
+    String? pin,
+  }) {
+    return AuthUser(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      phone: phone ?? this.phone,
+      role: role ?? this.role,
+      house: house ?? this.house,
+      area: area ?? this.area,
+      city: city ?? this.city,
+      state: state ?? this.state,
+      pin: pin ?? this.pin,
+    );
+  }
 }
 
 class Category {

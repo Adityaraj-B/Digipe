@@ -15,7 +15,7 @@ class AuthInterceptor extends Interceptor {
     if (token != null && token.isNotEmpty) {
       options.headers['Authorization'] = 'Bearer $token';
     }
-    
+
     // SECTION 1: Log Scrubbing in debug only
     if (kDebugMode) {
       final maskedHeaders = Map<String, dynamic>.from(options.headers);

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:screen_protector/screen_protector.dart';
-import '../../../../core/bloc/auth_bloc.dart';
+import 'bloc/auth_bloc.dart';
 import '../../main_layout/screens/main_layout_screen.dart';
 
 

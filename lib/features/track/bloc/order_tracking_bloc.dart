@@ -90,13 +90,16 @@ class OrderTrackingBloc
       emit(OrderTrackingRefreshing((state as OrderTrackingLoaded).order));
     }
     try {
-      final order = await _repository.fetchOrder(event.orderId);
+      final String targetId = event.orderId.isEmpty ? 'latest' : event.orderId;
+      final order = await _repository.fetchOrder(targetId);
       emit(OrderTrackingLoaded(order));
     } catch (e) {
       if (state is OrderTrackingRefreshing) {
         emit(OrderTrackingLoaded(
             (state as OrderTrackingRefreshing).currentOrder));
       }
+      // Log for debugging
+      print('[OrderTracking] Refresh error: $e');
       emit(OrderTrackingError(_friendlyMessage(e)));
     }
   }

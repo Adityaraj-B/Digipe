@@ -54,12 +54,18 @@ class OrderTrackingApiRepository implements OrderTrackingRepository {
           }
         }
 
-        allItems.sort((a, b) => (b['_sortDate'] as DateTime).compareTo(a['_sortDate'] as DateTime));
+        allItems.sort((a, b) {
+          final dateA = a['_sortDate'] as DateTime;
+          final dateB = b['_sortDate'] as DateTime;
+          return dateB.compareTo(dateA);
+        });
+        
         if (allItems.isNotEmpty) {
-          if (allItems.first['_type'] == 'policy') {
-            foundPol = allItems.first;
+          final top = allItems.first;
+          if (top['_type'] == 'policy') {
+            foundPol = top;
           } else {
-            foundApp = allItems.first;
+            foundApp = top;
           }
         }
       } else {
@@ -134,6 +140,7 @@ class OrderTrackingApiRepository implements OrderTrackingRepository {
 
     return OrderTracking(
       orderId: pol['policyNumber']?.toString() ?? pol['_id']?.toString() ?? 'Unknown ID',
+      dbId: pol['_id']?.toString() ?? '',
       status: status,
       policyType: policyType ?? 'Insurance Policy',
       amountPaid: double.tryParse(pol['premium']?.toString() ?? '0') ?? 0.0,
@@ -168,6 +175,7 @@ class OrderTrackingApiRepository implements OrderTrackingRepository {
 
     return OrderTracking(
       orderId: app['applicationNumber']?.toString() ?? app['_id']?.toString() ?? 'Unknown ID',
+      dbId: app['_id']?.toString() ?? app['id']?.toString() ?? '',
       status: status,
       policyType: policyType ?? 'Insurance Policy',
       amountPaid: premium,

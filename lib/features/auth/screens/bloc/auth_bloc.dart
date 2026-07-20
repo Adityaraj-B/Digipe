@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../repositories/auth_repository.dart';
-import '../models/api_models.dart';
-import '../utils/auth_utils.dart';
-import '../utils/auth_event_bus.dart' as bus;
+import '../../../../core/repositories/auth_repository.dart';
+import '../../../../core/models/api_models.dart';
+import '../../../../core/utils/auth_utils.dart';
+import '../../../../core/utils/auth_event_bus.dart' as bus;
 
 // --- Events ---
 abstract class AuthEvent {}
@@ -136,8 +137,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(OtpSending());
     try {
       final normalized = AuthUtils.normalizePhoneNumber(event.phone);
-      final identifier = await _authRepository.requestOtp(normalized);
-      emit(AwaitingOtp(identifier));
+      await _authRepository.requestOtp(normalized);
+      emit(AwaitingOtp(normalized));
     } on UserNotFoundException catch (e) {
       emit(AuthUserNotFound(event.phone, message: e.message));
     } catch (e) {
@@ -149,13 +150,31 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(OtpSending());
     try {
       final rawDigits = event.phone.replaceAll(RegExp(r'[^0-9]'), '');
-      final data = await _authRepository.register(
+      
+      await _authRepository.register(
           fullName: event.fullName, phone: rawDigits, email: event.email);
-      final serverIdentifier = data['identifier']?.toString() ?? rawDigits;
-      emit(AwaitingOtp(serverIdentifier,
+      
+      final normalized = AuthUtils.normalizePhoneNumber(rawDigits);
+                               
+      emit(AwaitingOtp(normalized,
           pendingName: event.fullName, pendingEmail: event.email));
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      final serverData = e.response?.data;
+      
+      String? serverMsg;
+      if (serverData is Map) {
+        serverMsg = serverData['message']?.toString();
+      }
+
+      if (status == 409) {
+        emit(AuthError(serverMsg ?? 'This number is already registered. Please log in instead.'));
+      } else {
+        // If the backend returns "User not found" even here, we show it clearly
+        emit(AuthError(serverMsg ?? 'Registration failed. Please try again.'));
+      }
     } catch (e) {
-      emit(AuthError(e.toString()));
+      emit(AuthError('Registration failed: ${e.toString()}'));
     }
   }
 
@@ -166,7 +185,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     emit(Verifying());
     try {
-      final result = await _authRepository.login(currentState.identifier, event.code);
+      final normalizedIdentifier =
+      AuthUtils.normalizePhoneNumber(currentState.identifier);
+      final result = await _authRepository.login(normalizedIdentifier, event.code);
 
       AuthUser user = result.user;
 

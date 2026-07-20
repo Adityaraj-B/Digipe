@@ -69,13 +69,18 @@ class _PaymentSuccessView extends StatelessWidget {
           const SizedBox(width: 16),
           Container(width: 1, height: 24, color: const Color(0xFFE5E5EA)),
           const SizedBox(width: 16),
-          const Text(
-            'Hello, +917206787699',
-            style: TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
+          const Flexible(
+            child: Text(
+              'Hello, +917206787699',
+              style: TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           const Spacer(),
           IconButton(
             icon: const Icon(Icons.wb_sunny_outlined, size: 20),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
             onPressed: () {},
           ),
           const SizedBox(width: 12),
@@ -121,6 +126,7 @@ class _PaymentSuccessView extends StatelessWidget {
               const SizedBox(height: 24),
               const Text(
                 'Payment Successful!',
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
@@ -258,12 +264,16 @@ class _PaymentSuccessView extends StatelessWidget {
           label,
           style: const TextStyle(fontSize: 14, color: Color(0xFF8E8E93)),
         ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
-            color: const Color(0xFF1A1A1A),
+        const SizedBox(width: 16),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+              color: const Color(0xFF1A1A1A),
+            ),
           ),
         ),
       ],

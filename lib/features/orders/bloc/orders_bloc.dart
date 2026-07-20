@@ -104,9 +104,14 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
 
       // 1. Map Policies
       final List<UnifiedOrder> mappedPolicies = policiesResult.map((pol) {
+        // Safe check for null policy
+        if (pol == null) return null;
+
         final activeClaim = claimsResult.firstWhere(
-              (c) {
-            final policyId = c['policy'] is Map ? c['policy']['_id'] : c['policy'];
+          (c) {
+            if (c == null) return false;
+            final policyData = c['policy'];
+            final policyId = policyData is Map ? policyData['_id'] : policyData;
             return policyId == pol['_id'];
           },
           orElse: () => <String, dynamic>{},
@@ -162,19 +167,22 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
           email: emailStr,
           years: years.toString(),
           planId: planId is String ? planId : null,
-          coverageAmount: coverage ?? 1000,
+          coverageAmount: (coverage is num) ? coverage : 1000,
           applicationId: appId,
         );
-      }).toList();
+      }).whereType<UnifiedOrder>().toList();
 
       // 2. Map Applications (Without Policies)
       final mappedApplications = applicationsResult.where((app) {
+        if (app == null) return false;
         final appId = app['_id'] ?? app['id'];
         return !policiesResult.any((pol) {
+          if (pol == null) return false;
           final polAppId = pol['application'] is Map ? pol['application']['_id'] : pol['application'];
           return polAppId == appId;
         });
       }).map((app) {
+        if (app == null) return null;
         final appId = app['_id'] ?? app['id'];
         String statusStr = 'Pending Approval';
         if (app['status'] == 'UNDER_REVIEW') statusStr = 'Pending Approval';
@@ -208,12 +216,33 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
           email: emailStr,
           years: years.toString(),
           planId: planId is String ? planId : null,
-          coverageAmount: coverage,
+          coverageAmount: (coverage is num) ? coverage : 1000,
           applicationId: app['applicationNumber'] ?? appId,
         );
-      }).toList();
+      }).whereType<UnifiedOrder>().toList();
 
       var combined = [...mappedPolicies, ...mappedApplications];
+
+      // CRITICAL FIX: Automatically "un-hide" any order that is active or recently updated
+      // If the backend says the order exists and is valid, we should respect that over 
+      // a previous local "delete" action.
+      final hiddenIds = await LocalOrderStore.getHiddenIds();
+      if (hiddenIds.isNotEmpty) {
+        for (final ord in combined) {
+          if (hiddenIds.contains(ord.id) || hiddenIds.contains(ord.dbId)) {
+            // If the order is "Active", "Claim Raised", or "Approved", 
+            // it means the user re-ordered or updated it. Restore visibility.
+            final status = ord.status.toLowerCase();
+            if (status.contains('active') || status.contains('claim') || status.contains('approved')) {
+              await LocalOrderStore.showOrder(ord.id);
+              await LocalOrderStore.showOrder(ord.dbId);
+            }
+          }
+        }
+      }
+
+      // Re-read hidden IDs after potential un-hiding
+      final updatedHiddenIds = await LocalOrderStore.getHiddenIds();
 
       for (var i = 0; i < combined.length; i++) {
         final ord = combined[i];
@@ -224,8 +253,7 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
         }
       }
 
-      final hiddenIds = await LocalOrderStore.getHiddenIds();
-      var filtered = combined.where((o) => !hiddenIds.contains(o.id) && !hiddenIds.contains(o.dbId)).toList();
+      var filtered = combined.where((o) => !updatedHiddenIds.contains(o.id) && !updatedHiddenIds.contains(o.dbId)).toList();
 
       if (event.searchQuery.isNotEmpty) {
         filtered = filtered

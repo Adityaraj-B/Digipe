@@ -18,7 +18,7 @@ class ApiService {
   Future<void> sendOtp(String mobileNumber) async {
     if (!_useRealApi) {
       if (mobileNumber == '+910000000000') {
-        throw UserNotFoundException();
+        throw Exception('User not registered. Please register first.');
       }
       return Future.delayed(const Duration(seconds: 1));
     }
@@ -27,7 +27,7 @@ class ApiService {
     } on DioException catch (e) {
       if (e.response?.statusCode == 404 ||
           (e.response?.data is Map && e.response?.data['message']?.toString().contains('not found') == true)) {
-        throw UserNotFoundException();
+        throw Exception('User not registered. Please register first.');
       }
       rethrow;
     }
@@ -40,10 +40,10 @@ class ApiService {
     }
     final response = await _client.dio.post(ApiConstants.register, data: {
       'fullName': fullName,
-      'phone': phone,
+      'mobileNumber': phone, // Changed from 'phone' to 'mobileNumber'
       'email': email,
     });
-    return response.data['data'];
+    return response.data['data'] ?? response.data;
   }
 
   Future<Map<String, dynamic>> verifyOtp(String mobileNumber, String code) async {
@@ -367,9 +367,4 @@ class ApiService {
       });
     }
   }
-}
-
-class UserNotFoundException implements Exception {
-  final String message;
-  UserNotFoundException({this.message = "User not registered. Please register first."});
 }

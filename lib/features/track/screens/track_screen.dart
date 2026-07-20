@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:dio/dio.dart';
 import '../../claims/bloc/claims_bloc.dart';
 import '../../claims/services/raise_claim.dart';
 import '../../payment/payment_screen.dart';
@@ -7,7 +8,6 @@ import '../bloc/order_tracking_bloc.dart';
 import '../service/order_tracking_model.dart';
 import '../../../core/services/api_service.dart';
 import '../service/order_tracking_repo.dart';
-
 
 class OrderTrackingScreen extends StatelessWidget {
   final String? orderId;
@@ -37,49 +37,59 @@ class _OrderTrackingView extends StatelessWidget {
   final String orderId;
   const _OrderTrackingView({required this.orderId});
 
+  // Responsive constraint parameter
+  static const double _maxScreenWidth = 800.0;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       body: SafeArea(
         bottom: false,
-        child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0.0, end: 1.0),
-          duration: const Duration(milliseconds: 600),
-          curve: Curves.easeOutQuart,
-          builder: (context, value, child) {
-            return Opacity(
-              opacity: value,
-              child: Transform.translate(
-                offset: Offset(0, 30 * (1 - value)),
-                child: child,
-              ),
-            );
-          },
-          child: BlocConsumer<OrderTrackingBloc, OrderTrackingState>(
-            listener: (context, state) {
-              if (state is OrderTrackingError &&
-                  context.read<OrderTrackingBloc>().state is OrderTrackingLoaded) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(state.message),
-                    behavior: SnackBarBehavior.floating,
-                    backgroundColor: const Color(0xFF1A1A1A),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        // Responsive Wrapper for Main Body
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _maxScreenWidth),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeOutQuart,
+              builder: (context, value, child) {
+                return Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                    offset: Offset(0, 30 * (1 - value)),
+                    child: child,
                   ),
                 );
-              }
-            },
-            builder: (context, state) {
-              return Column(
-                children: [
-                  _buildScreenHeader(),
-                  Expanded(
-                    child: _buildBody(context, state),
-                  ),
-                ],
-              );
-            },
+              },
+              child: BlocConsumer<OrderTrackingBloc, OrderTrackingState>(
+                listener: (context, state) {
+                  if (state is OrderTrackingError &&
+                      context.read<OrderTrackingBloc>().state is OrderTrackingLoaded) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(state.message),
+                        behavior: SnackBarBehavior.floating,
+                        backgroundColor: const Color(0xFF1A1A1A),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    );
+                  }
+                },
+                builder: (context, state) {
+                  return Column(
+                    children: [
+                      _buildScreenHeader(),
+                      Expanded(
+                        child: _buildBody(context, state),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
           ),
         ),
       ),
@@ -93,7 +103,7 @@ class _OrderTrackingView extends StatelessWidget {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha :0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -189,7 +199,7 @@ class _PremiumCard extends StatelessWidget {
         border: Border.all(color: Colors.white, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1A1A1A).withValues(alpha :0.03),
+            color: const Color(0xFF1A1A1A).withValues(alpha: 0.03),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -249,9 +259,9 @@ class _OrderInfoCard extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  const Color(0xFFEEEEEE).withValues(alpha :0.2),
+                  const Color(0xFFEEEEEE).withValues(alpha: 0.2),
                   const Color(0xFFEEEEEE),
-                  const Color(0xFFEEEEEE).withValues(alpha :0.2),
+                  const Color(0xFFEEEEEE).withValues(alpha: 0.2),
                 ],
               ),
             ),
@@ -519,7 +529,7 @@ class _StepIcon extends StatelessWidget {
             width: 8,
             height: 8,
             decoration: const BoxDecoration(
-              color: Color(0xFFDCDCDC),
+              color: const Color(0xFFDCDCDC),
               shape: BoxShape.circle,
             ),
           ),
@@ -581,7 +591,8 @@ class _QuickActionsCardState extends State<_QuickActionsCard> {
   Future<void> _proceedToPayment() async {
     if (widget.order.planId == null || widget.order.planId!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Missing plan details. Please try again from Orders.')),
+        const SnackBar(
+            content: Text('Missing plan details. Please try again.')),
       );
       return;
     }
@@ -596,8 +607,10 @@ class _QuickActionsCardState extends State<_QuickActionsCard> {
 
     try {
       final apiService = context.read<ApiService>();
-      final orderData = await apiService.createOrder(
-        applicationId: widget.order.orderId,
+
+      // MIRROR Orders screen logic: Use DB _id (dbId), not applicationNumber (orderId)
+      final createdOrder = await apiService.createOrder(
+        applicationId: widget.order.dbId,
         planId: widget.order.planId!,
       );
 
@@ -609,19 +622,37 @@ class _QuickActionsCardState extends State<_QuickActionsCard> {
         MaterialPageRoute(
           builder: (_) => PaymentPreviewScreen(
             product: widget.order.policyType,
-            basePremium: widget.order.amountPaid,
+            basePremium: (createdOrder['subtotal'] ?? widget.order.amountPaid).toDouble(),
             years: widget.order.years,
             planId: widget.order.planId!,
-            applicationId: widget.order.orderId,
-            orderData: orderData,
+            applicationId: widget.order.dbId, // Pass MongoDB ID
+            orderData: createdOrder,
           ),
         ),
       );
+    } on DioException catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // dismiss loading dialog
+      final message = e.response?.data?['message']?.toString() ?? '';
+
+      if (e.response?.statusCode == 400 &&
+          message.toLowerCase().contains('approved')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'Your application is pending admin approval. You will be notified once approved.')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(message.isNotEmpty ? message : 'Order creation failed.')),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context); // dismiss loading dialog
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not start payment: $e')),
+        SnackBar(content: Text('Error: $e')),
       );
     }
   }
@@ -808,7 +839,7 @@ class _ActionButton extends StatelessWidget {
               border: Border.all(color: const Color(0xFFEAEAEA)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha :0.01),
+                  color: Colors.black.withValues(alpha: 0.01),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 )
@@ -860,7 +891,7 @@ class _PayNowButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF2ECC71).withValues(alpha :0.3),
+                color: const Color(0xFF2ECC71).withValues(alpha: 0.3),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               )
@@ -964,7 +995,7 @@ class _LoadingView extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha :0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 16,
                   offset: const Offset(0, 4),
                 )
@@ -1013,7 +1044,7 @@ class _ErrorView extends StatelessWidget {
                 border: Border.all(color: Colors.white, width: 4),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF992727).withValues(alpha :0.1),
+                    color: const Color(0xFF992727).withValues(alpha: 0.1),
                     blurRadius: 16,
                     offset: const Offset(0, 4),
                   )
@@ -1042,7 +1073,7 @@ class _ErrorView extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF111111).withValues(alpha :0.2),
+                      color: const Color(0xFF111111).withValues(alpha: 0.2),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     )

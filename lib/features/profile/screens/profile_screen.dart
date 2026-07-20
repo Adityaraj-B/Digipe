@@ -2,11 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/bloc/auth_bloc.dart';
+import '../../auth/screens/bloc/auth_bloc.dart';
 import '../../../../core/constants/app_colors.dart' as app;
 import '../../../../core/models/api_models.dart';
 import '../../auth/screens/signup_screen.dart';
 import '../../main_layout/bloc/bottom_nav_bloc.dart';
+import '../../geofencing/services/geofence_manager.dart';
 import 'debug_settings_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -64,6 +65,12 @@ class _AuthenticatedProfileView extends StatelessWidget {
           onTap: () => context.read<BottomNavBloc>().add(TabChanged(1)),
         ),
         _ActionCard(
+          icon: Icons.confirmation_number_outlined,
+          title: 'My Gift Cards',
+          subtitle: 'View your purchased vouchers and pins',
+          onTap: () => Navigator.pushNamed(context, '/vouchers/history'),
+        ),
+        _ActionCard(
           icon: Icons.assignment_outlined,
           title: 'My Claims',
           subtitle: 'Open claim history and claim status',
@@ -73,11 +80,7 @@ class _AuthenticatedProfileView extends StatelessWidget {
           icon: Icons.location_on_outlined,
           title: 'Saved Addresses',
           subtitle: 'Manage billing and delivery locations',
-          onTap: () => _showComingSoonSheet(
-            context,
-            title: 'Saved Addresses',
-            message: 'This area is ready for future address management.',
-          ),
+          onTap: () => _showAddressSheet(context, user),
         ),
         _ActionCard(
           icon: Icons.payment_outlined,
@@ -95,6 +98,7 @@ class _AuthenticatedProfileView extends StatelessWidget {
           subtitle: 'Control claim and policy update alerts',
           onTap: () => _showNotificationsSheet(context),
         ),
+        _GeofenceToggleCard(),
         _ActionCard(
           icon: Icons.privacy_tip_outlined,
           title: 'Privacy & Security',
@@ -564,6 +568,14 @@ String _initial(String value) {
 
 Future<void> _showPersonalInfoSheet(BuildContext context, AuthUser? user) {
   if (user == null) return Future.value();
+  final nameController = TextEditingController(text: user.name);
+  final emailController = TextEditingController(text: user.email);
+  final houseController = TextEditingController(text: user.house ?? '');
+  final areaController = TextEditingController(text: user.area ?? '');
+  final cityController = TextEditingController(text: user.city ?? '');
+  final stateController = TextEditingController(text: user.state ?? '');
+  final pinController = TextEditingController(text: user.pin ?? '');
+
   return showModalBottomSheet<void>(
     context: context,
     backgroundColor: Colors.transparent,
@@ -575,10 +587,143 @@ Future<void> _showPersonalInfoSheet(BuildContext context, AuthUser? user) {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _SheetInfoRow(label: 'Name', value: user.name.isEmpty ? '—' : user.name),
-            _SheetInfoRow(label: 'Email', value: user.email.isEmpty ? '—' : user.email),
-            _SheetInfoRow(label: 'Phone', value: user.phone.isEmpty ? '—' : user.phone),
-            _SheetInfoRow(label: 'Role', value: user.role.isEmpty ? 'User' : user.role),
+            // Editable fields
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: 'Full Name'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: emailController,
+              decoration: const InputDecoration(labelText: 'Email'),
+              keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: houseController,
+              decoration: const InputDecoration(labelText: 'House / Shop No.'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: areaController,
+              decoration: const InputDecoration(labelText: 'Area / Locality'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: cityController,
+              decoration: const InputDecoration(labelText: 'City'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: stateController,
+              decoration: const InputDecoration(labelText: 'State'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: pinController,
+              decoration: const InputDecoration(labelText: 'PIN Code'),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  // Persist updates to profile
+                  final name = nameController.text.trim();
+                  final email = emailController.text.trim();
+                  final house = houseController.text.trim();
+                  final area = areaController.text.trim();
+                  final city = cityController.text.trim();
+                  final state = stateController.text.trim();
+                  final pin = pinController.text.trim();
+
+                  // Dispatch update
+                  try {
+                    Navigator.pop(sheetContext);
+                    // Delay to allow sheet to close before updating
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      final bloc = context.read<AuthBloc>();
+                      bloc.add(AuthUpdateProfileRequested(
+                        name: name.isEmpty ? null : name,
+                        email: email.isEmpty ? null : email,
+                        house: house.isEmpty ? null : house,
+                        area: area.isEmpty ? null : area,
+                        city: city.isEmpty ? null : city,
+                        state: state.isEmpty ? null : state,
+                        pin: pin.isEmpty ? null : pin,
+                      ));
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile updated')));
+                    });
+                  } catch (_) {}
+                },
+                child: const Text('Save Changes'),
+                style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+Future<void> _showAddressSheet(BuildContext context, AuthUser? user) {
+  if (user == null) return Future.value();
+  final houseController = TextEditingController(text: user.house ?? '');
+  final areaController = TextEditingController(text: user.area ?? '');
+  final cityController = TextEditingController(text: user.city ?? '');
+  final stateController = TextEditingController(text: user.state ?? '');
+  final pinController = TextEditingController(text: user.pin ?? '');
+
+  return showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (sheetContext) {
+      return _ProfileSheet(
+        title: 'Saved Address',
+        icon: Icons.location_on_outlined,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: houseController, decoration: const InputDecoration(labelText: 'House / Shop No.')),
+            const SizedBox(height: 12),
+            TextField(controller: areaController, decoration: const InputDecoration(labelText: 'Area / Locality')),
+            const SizedBox(height: 12),
+            TextField(controller: cityController, decoration: const InputDecoration(labelText: 'City')),
+            const SizedBox(height: 12),
+            TextField(controller: stateController, decoration: const InputDecoration(labelText: 'State')),
+            const SizedBox(height: 12),
+            TextField(controller: pinController, decoration: const InputDecoration(labelText: 'PIN Code'), keyboardType: TextInputType.number),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  final house = houseController.text.trim();
+                  final area = areaController.text.trim();
+                  final city = cityController.text.trim();
+                  final state = stateController.text.trim();
+                  final pin = pinController.text.trim();
+
+                  Navigator.pop(sheetContext);
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    final bloc = context.read<AuthBloc>();
+                    bloc.add(AuthUpdateProfileRequested(
+                      house: house.isEmpty ? null : house,
+                      area: area.isEmpty ? null : area,
+                      city: city.isEmpty ? null : city,
+                      state: state.isEmpty ? null : state,
+                      pin: pin.isEmpty ? null : pin,
+                    ));
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Address saved')));
+                  });
+                },
+                child: const Text('Save Address'),
+                style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              ),
+            ),
           ],
         ),
       );
@@ -844,6 +989,70 @@ class _SheetBullet extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _GeofenceToggleCard extends StatefulWidget {
+  @override
+  State<_GeofenceToggleCard> createState() => _GeofenceToggleCardState();
+}
+
+class _GeofenceToggleCardState extends State<_GeofenceToggleCard> {
+  bool _enabled = true; // Should ideally come from a dedicated Bloc/Settings service
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: app.AppColors.inputBorder.withValues(alpha: 0.55)),
+        ),
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+          leading: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: app.AppColors.inputFill,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.location_on_outlined, size: 22, color: app.AppColors.ctaButton),
+          ),
+          title: const Text(
+            'Partner Offer Alerts',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: app.AppColors.textPrimary,
+            ),
+          ),
+          subtitle: const Text(
+            'Get notified about discounts when near partner stores',
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.35,
+              color: app.AppColors.textSecondary,
+            ),
+          ),
+          trailing: Switch.adaptive(
+            value: _enabled,
+            activeColor: app.AppColors.ctaButton,
+            onChanged: (val) async {
+              setState(() => _enabled = val);
+              final manager = context.read<GeofenceManager>();
+              if (val) {
+                await manager.initializeTracelet();
+              } else {
+                await manager.stopAll();
+              }
+            },
+          ),
+        ),
       ),
     );
   }

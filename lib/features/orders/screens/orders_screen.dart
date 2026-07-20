@@ -150,7 +150,7 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
       );
 
       if (!context.mounted) return;
-      Navigator.pop(context); // Close loader
+      Navigator.pop(context);
 
       Navigator.push(
         context,
@@ -167,7 +167,7 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
       );
     } on DioException catch (e) {
       if (!context.mounted) return;
-      Navigator.pop(context); // Close loader
+      Navigator.pop(context);
       final message = e.response?.data?['message']?.toString() ?? '';
 
       if (e.response?.statusCode == 400 && message.toLowerCase().contains('approved')) {
@@ -181,7 +181,7 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
       }
     } catch (e) {
       if (!context.mounted) return;
-      Navigator.pop(context); // Close loader
+      Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
@@ -293,7 +293,10 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
           }).toList(),
           onChanged: (String? newValue) {
             if (newValue != null) {
-              setState(() => _selectedStatus = newValue);
+              setState(() {
+                _selectedStatus = newValue;
+              });
+              // Ensure we close and re-trigger search/filter correctly
               _onSearchOrFilterChanged();
             }
           },
@@ -309,7 +312,8 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 60),
             child: Center(
-              child: CircularProgressIndicator(color: AppColors.inkStrong, strokeWidth: 2.5),
+              child: CircularProgressIndicator(
+                  color: AppColors.inkStrong, strokeWidth: 2.5),
             ),
           );
         }
@@ -321,33 +325,37 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
             iconFg: AppColors.dangerFg,
             message: state.message,
             actionLabel: 'Try Again',
-            onAction: _onSearchOrFilterChanged,
+            onAction: () => _onSearchOrFilterChanged(),
           );
         }
 
         if (state is OrdersLoaded) {
           if (state.orders.isEmpty) {
-            return const PremiumEmptyState(
-              icon: Icons.inventory_2_outlined,
-              iconBg: AppColors.neutralBg,
-              iconFg: AppColors.neutralFg,
-              message: 'No orders match your search or filter.',
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 40),
+              child: PremiumEmptyState(
+                icon: Icons.inventory_2_outlined,
+                iconBg: AppColors.neutralBg,
+                iconFg: AppColors.neutralFg,
+                message: 'No orders match your search or filter.',
+              ),
             );
           }
           return Column(
             children: [
               const SizedBox(height: 4),
               ...state.orders.map(
-                    (order) => Padding(
+                (order) => Padding(
                   padding: const EdgeInsets.only(bottom: 16),
                   child: _buildOrderCard(context, order),
                 ),
               ),
-              _buildPaginationFooter(
-                state.orders.length,
-                state.totalEntries,
-                state.currentPage,
-              ),
+              if (state.totalEntries > 10)
+                _buildPaginationFooter(
+                  state.orders.length,
+                  state.totalEntries,
+                  state.currentPage,
+                ),
             ],
           );
         }
@@ -481,7 +489,7 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
             Row(
               children: [
                 Expanded(
-                  child: FilledButton.icon(
+                  child: FilledButton(
                     onPressed: () => _processPayment(context, order),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.ink,
@@ -492,10 +500,19 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
                       ),
                       elevation: 0,
                     ),
-                    icon: const Icon(Icons.payment_rounded, size: 18),
-                    label: const Text(
-                      "Pay Now",
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                    child: const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.payment_rounded, size: 18),
+                          SizedBox(width: 8),
+                          Text(
+                            "Pay Now",
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -518,7 +535,7 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
             Row(
               children: [
                 Expanded(
-                  child: TextButton.icon(
+                  child: TextButton(
                     onPressed: () => _openPolicyDetails(order),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.ink,
@@ -527,16 +544,25 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    icon: const Icon(Icons.visibility_outlined, size: 18),
-                    label: const Text(
-                      "Track",
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                    child: const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.visibility_outlined, size: 18),
+                          SizedBox(width: 4),
+                          Text(
+                            "Track",
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
                 Container(width: 1, height: 24, color: AppColors.border.withValues(alpha: 0.5)),
                 Expanded(
-                  child: TextButton.icon(
+                  child: TextButton(
                     onPressed: isDownloadable ? () {} : null,
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.ink,
@@ -546,16 +572,25 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    icon: const Icon(Icons.download_rounded, size: 18),
-                    label: const Text(
-                      "Download",
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                    child: const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.download_rounded, size: 18),
+                          SizedBox(width: 4),
+                          Text(
+                            "Download",
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
                 Container(width: 1, height: 24, color: AppColors.border.withValues(alpha: 0.5)),
                 Expanded(
-                  child: TextButton.icon(
+                  child: TextButton(
                     onPressed: () => _confirmDeleteOrder(order),
                     style: TextButton.styleFrom(
                       foregroundColor: const Color(0xFFB23A3A),
@@ -564,10 +599,19 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                    label: const Text(
-                      "Delete",
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                    child: const FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.delete_outline_rounded, size: 18),
+                          SizedBox(width: 4),
+                          Text(
+                            "Delete",
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -614,17 +658,20 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
             'Showing 1 to $currentCount of $totalCount entries',
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.bodyGrey),
           ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildPaginationButton('Previous', isEnabled: currentPage > 1),
-              const SizedBox(width: 8),
-              for (int i = 1; i <= totalPages; i++) ...[
-                _buildPaginationNumber('$i', isActive: i == currentPage),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildPaginationButton('Previous', isEnabled: currentPage > 1),
                 const SizedBox(width: 8),
+                for (int i = 1; i <= totalPages; i++) ...[
+                  _buildPaginationNumber('$i', isActive: i == currentPage),
+                  const SizedBox(width: 8),
+                ],
+                _buildPaginationButton('Next', isEnabled: currentPage < totalPages),
               ],
-              _buildPaginationButton('Next', isEnabled: currentPage < totalPages),
-            ],
+            ),
           ),
         ],
       ),
@@ -682,22 +729,24 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            value,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: isPrimary ? 22 : 17,
-              fontWeight: FontWeight.w700,
-              color: AppColors.ink,
-              height: 1.1,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: isPrimary ? 22 : 17,
+                fontWeight: FontWeight.w700,
+                color: AppColors.ink,
+                height: 1.1,
+              ),
             ),
           ),
-
           const SizedBox(height: 10),
-
           Text(
             label,
             textAlign: TextAlign.center,
+            maxLines: 1,
             style: const TextStyle(
               fontSize: 13,
               color: AppColors.bodyGrey,

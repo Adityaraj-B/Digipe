@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:screen_protector/screen_protector.dart';
 import '../../../../core/services/notification_service.dart';
-import '../../../../core/bloc/auth_bloc.dart';
+import 'bloc/auth_bloc.dart';
 import '../../../../core/widgets/sun_illustration.dart';
 import '../../../../core/utils/auth_utils.dart';
 import '../../main_layout/screens/main_layout_screen.dart';
@@ -116,77 +116,125 @@ class _SignupScreenState extends State<SignupScreen> {
       child: Scaffold(
         backgroundColor: const Color(0xFF1C1C1E),
         resizeToAvoidBottomInset: true,
-        body: BlocBuilder<AuthBloc, AuthState>(
-          builder: (context, state) {
-            final isLoading = state is OtpSending;
-            return CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: RepaintBoundary(
-                          child: _HeroSection(isModal: widget.isModal),
+        body: SafeArea(
+          top: false,
+          bottom: false,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // Responsive metrics derived from the actual space available to
+              // this widget (accounts for width, height, and orientation).
+              final width = constraints.maxWidth;
+              final height = constraints.maxHeight;
+              final isTablet = width >= 600;
+              final isShort = height < 700; // small/landscape phones
+
+              // Scale factor for paddings/fonts, clamped so it never gets
+              // too tiny on small phones or too huge on tablets/desktop.
+              final scale = (width / 390).clamp(0.85, 1.25);
+
+              final heroMinHeight = (height * (isShort ? 0.30 : 0.38))
+                  .clamp(220.0, 380.0);
+              final sunSize = (100 * scale).clamp(80.0, 130.0);
+              final formMaxWidth = isTablet ? 480.0 : double.infinity;
+              final horizontalPadding = isTablet ? 32.0 : 24.0 * scale;
+
+              return BlocBuilder<AuthBloc, AuthState>(
+                builder: (context, state) {
+                  final isLoading = state is OtpSending;
+                  return CustomScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(minHeight: heroMinHeight),
+                          child: RepaintBoundary(
+                            child: _HeroSection(
+                              isModal: widget.isModal,
+                              sunSize: sunSize,
+                              scale: scale,
+                              isTablet: isTablet,
+                            ),
+                          ),
                         ),
                       ),
-                      RepaintBoundary(
-                        child: _buildFormSheet(isLoading),
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        fillOverscroll: false,
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(maxWidth: formMaxWidth),
+                            child: RepaintBoundary(
+                              child: _buildFormSheet(
+                                isLoading,
+                                scale: scale,
+                                horizontalPadding: horizontalPadding,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ],
-                  ),
-                ),
-              ],
-            );
-          },
+                  );
+                },
+              );
+            },
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildFormSheet(bool isLoading) {
+  Widget _buildFormSheet(
+      bool isLoading, {
+        required double scale,
+        required double horizontalPadding,
+      }) {
     return Container(
       width: double.infinity,
       color: Colors.white,
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: 24 * scale,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             _isRegisterMode ? 'Register Account' : 'Welcome to DIGIPe!',
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 22 * scale, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8 * scale),
           if (_userNotFoundMessage != null && _isRegisterMode)
             Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
+              padding: EdgeInsets.only(bottom: 8.0 * scale),
               child: Text(
                 _userNotFoundMessage!,
-                style: const TextStyle(color: Colors.red, fontSize: 13, fontWeight: FontWeight.w500),
+                style: TextStyle(color: Colors.red, fontSize: 13 * scale, fontWeight: FontWeight.w500),
               ),
             ),
           Text(
             _isRegisterMode
                 ? 'Join India\'s most trusted solar insurance platform'
                 : 'Please enter your phone number to continue',
-            style: const TextStyle(color: Colors.grey, fontSize: 13),
+            style: TextStyle(color: Colors.grey, fontSize: 13 * scale),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24 * scale),
 
           if (_isRegisterMode) ...[
-            _label('Full Name'),
+            _label('Full Name', scale),
             _textField(
               controller: _nameController,
               focusNode: _nameFocus,
               hint: 'Enter your full name',
               nextFocus: _phoneFocus,
+              scale: scale,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16 * scale),
           ],
 
-          _label('Phone Number'),
+          _label('Phone Number', scale),
           _textField(
             controller: _phoneController,
             focusNode: _phoneFocus,
@@ -195,23 +243,25 @@ class _SignupScreenState extends State<SignupScreen> {
             inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
             nextFocus: _isRegisterMode ? _emailFocus : null,
             readOnly: _isRegisterMode,
+            scale: scale,
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16 * scale),
 
           if (_isRegisterMode) ...[
-            _label('Email Address'),
+            _label('Email Address', scale),
             _textField(
               controller: _emailController,
               focusNode: _emailFocus,
               hint: 'Enter your email',
               keyboardType: TextInputType.emailAddress,
+              scale: scale,
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24 * scale),
           ],
 
           SizedBox(
             width: double.infinity,
-            height: 54,
+            height: 54 * scale,
             child: ElevatedButton(
               onPressed: isLoading ? null : () {
                 NotificationService.mediumImpact();
@@ -223,11 +273,18 @@ class _SignupScreenState extends State<SignupScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               child: isLoading
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : Text(_isRegisterMode ? 'Register & Send OTP' : 'Continue'),
+                  ? SizedBox(
+                width: 20 * scale,
+                height: 20 * scale,
+                child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+              )
+                  : Text(
+                _isRegisterMode ? 'Register & Send OTP' : 'Continue',
+                style: TextStyle(fontSize: 15 * scale),
+              ),
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16 * scale),
           Center(
             child: TextButton(
               onPressed: () {
@@ -239,7 +296,7 @@ class _SignupScreenState extends State<SignupScreen> {
               },
               child: Text(
                 _isRegisterMode ? 'Back to Login' : 'Don\'t have an account? Sign Up',
-                style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
+                style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600, fontSize: 13 * scale),
               ),
             ),
           ),
@@ -248,15 +305,16 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-  Widget _label(String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: Text(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+  Widget _label(String text, double scale) => Padding(
+    padding: EdgeInsets.only(bottom: 8 * scale),
+    child: Text(text, style: TextStyle(fontSize: 13 * scale, fontWeight: FontWeight.bold)),
   );
 
   Widget _textField({
     required TextEditingController controller,
     required FocusNode focusNode,
     required String hint,
+    required double scale,
     FocusNode? nextFocus,
     TextInputType keyboardType = TextInputType.text,
     List<TextInputFormatter>? inputFormatters,
@@ -268,12 +326,15 @@ class _SignupScreenState extends State<SignupScreen> {
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       readOnly: readOnly,
+      style: TextStyle(fontSize: 14 * scale),
       textInputAction: nextFocus != null ? TextInputAction.next : TextInputAction.done,
       onSubmitted: (_) => nextFocus != null ? FocusScope.of(context).requestFocus(nextFocus) : _onSubmit(),
       decoration: InputDecoration(
         hintText: hint,
+        hintStyle: TextStyle(fontSize: 14 * scale),
         filled: true,
         fillColor: readOnly ? Colors.grey[100] : Colors.grey[50],
+        contentPadding: EdgeInsets.symmetric(horizontal: 14 * scale, vertical: 14 * scale),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
       ),
@@ -283,73 +344,95 @@ class _SignupScreenState extends State<SignupScreen> {
 
 class _HeroSection extends StatelessWidget {
   final bool isModal;
-  const _HeroSection({required this.isModal});
+  final double sunSize;
+  final double scale;
+  final bool isTablet;
+
+  const _HeroSection({
+    required this.isModal,
+    required this.sunSize,
+    required this.scale,
+    required this.isTablet,
+  });
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       bottom: false,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('DIGIPE', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-                TextButton(
-                  onPressed: () => isModal ? Navigator.pop(context) : context.read<AuthBloc>().add(AuthSkipRequested()),
-                  child: const Text('Skip', style: TextStyle(color: Colors.white70)),
-                )
-              ],
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 16 * scale),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24 * scale, vertical: 8 * scale),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'DIGIPE',
+                    style: TextStyle(fontSize: 20 * scale, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  TextButton(
+                    onPressed: () => isModal ? Navigator.pop(context) : context.read<AuthBloc>().add(AuthSkipRequested()),
+                    child: Text('Skip', style: TextStyle(color: Colors.white70, fontSize: 14 * scale)),
+                  )
+                ],
+              ),
             ),
-          ),
-          const Spacer(),
-          const SunIllustration(size: 100),
-          const SizedBox(height: 24),
-          const Text('Solar Insurance', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
-          const SizedBox(height: 12),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 40),
-            child: Text(
-              "Protect your investment with India's most trusted solar insurance platform",
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white70, height: 1.4),
+            SizedBox(height: 12 * scale),
+            SunIllustration(size: sunSize),
+            SizedBox(height: 24 * scale),
+            Text(
+              'Solar Insurance',
+              style: TextStyle(fontSize: 24 * scale, fontWeight: FontWeight.bold, color: Colors.white),
             ),
-          ),
-          const SizedBox(height: 28),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24),
-            child: HeroStatsRow(),
-          ),
-          const Spacer(),
-        ],
+            SizedBox(height: 12 * scale),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: isTablet ? 80 : 40 * scale),
+              child: Text(
+                "Protect your investment with India's most trusted solar insurance platform",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white70, height: 1.4, fontSize: 14 * scale),
+              ),
+            ),
+            SizedBox(height: 24 * scale),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24 * scale),
+              child: HeroStatsRow(scale: scale),
+            ),
+            SizedBox(height: 12 * scale),
+          ],
+        ),
       ),
     );
   }
 }
 
 class HeroStatsRow extends StatelessWidget {
-  const HeroStatsRow({super.key});
+  final double scale;
+  const HeroStatsRow({super.key, this.scale = 1.0});
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
       children: [
         Expanded(
           child: _StatCard(
             label: 'Policies',
             value: '624k',
             change: '+8.24%',
+            scale: scale,
           ),
         ),
-        SizedBox(width: 12),
+        SizedBox(width: 12 * scale),
         Expanded(
           child: _StatCard(
             label: 'Claims Settled',
             value: '124k',
             change: '+12.6%',
+            scale: scale,
           ),
         ),
       ],
@@ -361,17 +444,19 @@ class _StatCard extends StatelessWidget {
   final String label;
   final String value;
   final String change;
+  final double scale;
 
   const _StatCard({
     required this.label,
     required this.value,
     required this.change,
+    this.scale = 1.0,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 14 * scale),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
@@ -389,27 +474,27 @@ class _StatCard extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.65),
-              fontSize: 13,
+              fontSize: 13 * scale,
               fontWeight: FontWeight.w400,
             ),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6 * scale),
           Text(
             value,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
-              fontSize: 22,
+              fontSize: 22 * scale,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4 * scale),
           Text(
             change,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Color(0xFF4ADE80),
-              fontSize: 13,
+            style: TextStyle(
+              color: const Color(0xFF4ADE80),
+              fontSize: 13 * scale,
               fontWeight: FontWeight.w600,
             ),
           ),

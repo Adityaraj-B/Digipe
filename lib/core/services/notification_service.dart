@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -5,6 +6,9 @@ import 'dart:io';
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
+
+  // Callback for when a notification is tapped
+  static Function(Map<String, dynamic>)? onNotificationTap;
 
   static Future<void> init() async {
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -16,10 +20,20 @@ class NotificationService {
 
     const initSettings = InitializationSettings(android: androidInit, iOS: iosInit);
 
-    // v22+ requires the named 'settings' parameter, not positional
-    await _notifications.initialize(settings: initSettings);
+    await _notifications.initialize(
+      settings: initSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        if (response.payload != null && onNotificationTap != null) {
+          try {
+            final Map<String, dynamic> data = jsonDecode(response.payload!);
+            onNotificationTap!(data);
+          } catch (e) {
+            print('Error parsing notification payload: $e');
+          }
+        }
+      },
+    );
 
-    // Request permissions explicitly on startup
     await requestPermissions();
   }
 
@@ -44,6 +58,7 @@ class NotificationService {
     required int id,
     required String title,
     required String body,
+    Map<String, dynamic>? payload,
   }) async {
     const androidDetails = AndroidNotificationDetails(
       'digipe_main',
@@ -51,16 +66,34 @@ class NotificationService {
       channelDescription: 'Important updates regarding your insurance',
       importance: Importance.max,
       priority: Priority.high,
+      color: Color(0xFFF5A623),
     );
     const iosDetails = DarwinNotificationDetails();
     const platformDetails = NotificationDetails(android: androidDetails, iOS: iosDetails);
 
-    // v22+ requires named parameters here too
     await _notifications.show(
       id: id,
       title: title,
       body: body,
       notificationDetails: platformDetails,
+      payload: payload != null ? jsonEncode(payload) : null,
+    );
+  }
+
+  static Future<void> showGeofenceNotification({
+    required String storeId,
+    required String storeName,
+    String? couponId,
+  }) async {
+    await showNotification(
+      id: storeId.hashCode,
+      title: 'Nearby Offer at $storeName!',
+      body: 'Tap to see exclusive partner discounts available now.',
+      payload: {
+        'type': 'geofence_offer',
+        'storeId': storeId,
+        'couponId': couponId,
+      },
     );
   }
 

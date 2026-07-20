@@ -421,10 +421,14 @@ class PremiumEntrance extends StatelessWidget {
     this.duration = const Duration(milliseconds: 600),
   });
 
+  // Shared static tween instance — prevents TweenAnimationBuilder from
+  // treating every rebuild as "a new target" and restarting the animation.
+  static final Tween<double> _fadeTween = Tween(begin: 0.0, end: 1.0);
+
   @override
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
+      tween: _fadeTween,
       duration: duration,
       curve: Curves.easeOutQuart,
       builder: (context, value, c) {

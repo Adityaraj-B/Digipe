@@ -5,6 +5,10 @@ import '../../../../core/widgets/Cards.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../product/bloc/product_bloc.dart';
 import '../../product/screens/product_screen.dart';
+import '../../vouchers/screens/voucher_catalog_screen.dart';
+import '../../vouchers/screens/voucher_detail_screen.dart';
+import '../../vouchers/bloc/voucher_bloc.dart';
+import '../../vouchers/models/voucher_models.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,6 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     context.read<ProductBloc>().add(LoadProducts());
+    context.read<VoucherBloc>().add(LoadBrands());
   }
 
   @override
@@ -26,50 +31,70 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: AppColors.surface,
       body: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            const ScreenHeader(
-              title: 'Available Protection Plans',
-              subtitle:
-              'Select an insurance plan to secure your assets with customized rates.',
-              padding: EdgeInsets.fromLTRB(24, 20, 24, 16),
-              titleFontSize: 25,
-              subtitleFontSize: 15,
-              gap: 4,
-            ),
-            Expanded(
-              child: BlocBuilder<ProductBloc, ProductState>(
-                builder: (context, state) {
-                  return PremiumEntrance(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Column(
+              children: [
+                const ScreenHeader(
+                  title: 'Offers & Protection',
+                  subtitle:
+                  'Discover nearby store offers and secure your assets.',
+                  padding: EdgeInsets.fromLTRB(24, 20, 24, 16),
+                  titleFontSize: 25,
+                  subtitleFontSize: 15,
+                  gap: 4,
+                ),
+                Expanded(
+                  child: PremiumEntrance(
                     child: SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(0, 24, 0, kNavBarClearance),
+                      padding: const EdgeInsets.fromLTRB(0, 16, 0, kNavBarClearance),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // ---- Multiple banners: one card per product (unchanged) ----
-                          if (state is ProductLoading)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                              child: _buildInsuranceCard(context, state, null),
-                            )
-                          else if (state is ProductLoaded && state.products.isNotEmpty)
-                            ...state.products.map(
-                                  (product) => Padding(
-                                padding: const EdgeInsets.only(
-                                  left: 16.0,
-                                  right: 16.0,
-                                  bottom: 16.0,
-                                ),
-                                child: _buildInsuranceCard(context, state, product),
+                          _buildCouponsSection(),
+                          const Padding(
+                            padding: EdgeInsets.fromLTRB(24, 32, 24, 16),
+                            child: Text(
+                              'Protection Plans',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.ink,
                               ),
-                            )
-                          else
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                              child: _buildInsuranceCard(context, state, null),
                             ),
-
+                          ),
+                          BlocBuilder<ProductBloc, ProductState>(
+                            builder: (context, state) {
+                              if (state is ProductLoading) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                                  child: _buildInsuranceCard(context, state, null),
+                                );
+                              } else if (state is ProductLoaded && state.products.isNotEmpty) {
+                                return Column(
+                                  children: state.products
+                                      .map(
+                                        (product) => Padding(
+                                      padding: const EdgeInsets.only(
+                                        left: 16.0,
+                                        right: 16.0,
+                                        bottom: 16.0,
+                                      ),
+                                      child: _buildInsuranceCard(context, state, product),
+                                    ),
+                                  )
+                                      .toList(),
+                                );
+                              }
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                                child: _buildInsuranceCard(context, state, null),
+                              );
+                            },
+                          ),
                           const SizedBox(height: 56),
                           const Center(
                             child: Text(
@@ -86,9 +111,257 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                     ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // COUPONS / OFFERS SECTION
+  // ---------------------------------------------------------------------
+
+  Widget _buildCouponsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Nearby Store Offers',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.ink,
+                ),
+              ),
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const VoucherCatalogScreen()),
                   );
                 },
+                child: const Text(
+                  'Buy Gift Cards',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFF5A623),
+                  ),
+                ),
               ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 164,
+          child: BlocBuilder<VoucherBloc, VoucherState>(
+            builder: (context, state) {
+              if (state is VoucherLoading) {
+                return ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: 3,
+                  itemBuilder: (context, index) => _buildCouponCardSkeleton(),
+                );
+              }
+
+              if (state is VoucherLoaded && state.brands.isNotEmpty) {
+                return ListView.builder(
+                  physics: const BouncingScrollPhysics(),
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: state.brands.length,
+                  itemBuilder: (context, index) {
+                    final brand = state.brands[index];
+                    return _buildGiftCardOffer(brand);
+                  },
+                );
+              }
+
+              // Fallback to static if no brands or error
+              return ListView(
+                physics: const BouncingScrollPhysics(),
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: [
+                  _buildCouponCard(
+                    storeName: 'Reliance Smart',
+                    offer: '20% OFF',
+                    distance: 'Within 200m',
+                    icon: Icons.storefront_rounded,
+                    accent: const Color(0xFFFF6B6B),
+                  ),
+                  _buildCouponCard(
+                    storeName: 'D-Mart',
+                    offer: 'Flat ₹500 OFF',
+                    distance: 'Within 500m',
+                    icon: Icons.shopping_cart_rounded,
+                    accent: const Color(0xFF2BD9C2),
+                  ),
+                  _buildCouponCard(
+                    storeName: 'Star Bazaar',
+                    offer: 'Buy 1 Get 1',
+                    distance: 'Within 1km',
+                    icon: Icons.shopping_bag_rounded,
+                    accent: const Color(0xFFFFB648),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGiftCardOffer(GiftCardBrand brand) {
+    String priceLabel = '';
+    if (brand.isFixed) {
+      final min = brand.denominations?.reduce((a, b) => a < b ? a : b);
+      priceLabel = 'From ₹$min';
+    } else {
+      priceLabel = '₹${brand.minVoucherAmount}';
+    }
+
+    final accent = brand.category == 'Food & Beverage'
+        ? const Color(0xFF2BD9C2)
+        : brand.category == 'Fashion'
+            ? const Color(0xFFFF6B6B)
+            : const Color(0xFFFFB648);
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => VoucherDetailScreen(productId: brand.productId),
+          ),
+        );
+      },
+      child: Container(
+        width: 280,
+        height: 156,
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+          gradient: RadialGradient(
+            center: const Alignment(0.9, -0.9),
+            radius: 1.1,
+            colors: [
+              accent.withValues(alpha: 0.30),
+              const Color(0xFF2A2733),
+              const Color(0xFF23202B),
+            ],
+            stops: const [0.0, 0.45, 1.0],
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: accent.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: accent.withValues(alpha: 0.25)),
+                        ),
+                        child: const Icon(Icons.confirmation_number_rounded, color: Colors.white, size: 15),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          brand.name,
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                  ),
+                  child: Text(
+                    brand.category ?? 'Premium',
+                    style: const TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  priceLabel,
+                  style: const TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 25,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    letterSpacing: -0.5,
+                    height: 1.0,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Text(
+                      'Redeem Now',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: accent,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(Icons.arrow_forward_rounded, size: 13, color: accent),
+                  ],
+                ),
+              ],
             ),
           ],
         ),
@@ -96,10 +369,157 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --------------------------------------------------------------------
-  // Unchanged: banner card + its behavior (bloc selection, navigation,
-  // pricing calc, description copy). Left exactly as it was.
-  // --------------------------------------------------------------------
+  Widget _buildCouponCardSkeleton() {
+    return Container(
+      width: 280,
+      height: 156,
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: const Color(0xFF2A2733),
+      ),
+    );
+  }
+
+  Widget _buildCouponCard({
+    required String storeName,
+    required String offer,
+    required String distance,
+    required IconData icon,
+    required Color accent,
+  }) {
+    return Container(
+      key: ValueKey('coupon_$storeName'),
+      width: 280,
+      height: 156,
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+        gradient: RadialGradient(
+          center: const Alignment(0.9, -0.9),
+          radius: 1.1,
+          colors: [
+            accent.withValues(alpha: 0.30),
+            const Color(0xFF2A2733),
+            const Color(0xFF23202B),
+          ],
+          stops: const [0.0, 0.45, 1.0],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: accent.withValues(alpha: 0.25)),
+                      ),
+                      child: Icon(icon, color: accent, size: 15),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        storeName,
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.location_on_rounded, color: Colors.white60, size: 11),
+                    const SizedBox(width: 3),
+                    Text(
+                      distance,
+                      style: const TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                offer,
+                style: const TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 25,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  letterSpacing: -0.5,
+                  height: 1.0,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Text(
+                    'Redeem',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: accent,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.arrow_forward_rounded, size: 13, color: accent),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // PROTECTION PLAN CARD
+  // ---------------------------------------------------------------------
+
   Widget _buildInsuranceCard(
       BuildContext context,
       ProductState state,
@@ -117,14 +537,10 @@ class _HomeScreenState extends State<HomeScreen> {
           .trim();
       productName = '$rawName Plan';
 
-      // Pull plans for THIS specific product from the cached map,
-      // not state.availablePlans (which only reflects the currently
-      // selected product in the BLoC).
       plansForProduct = state.productPlans[product.id] ?? [];
 
       if (plansForProduct.isNotEmpty) {
-        final validPlans =
-        plansForProduct.where((p) => p.premium > 0).toList();
+        final validPlans = plansForProduct.where((p) => p.premium > 0).toList();
         if (validPlans.isNotEmpty) {
           final minPremium =
           validPlans.map((p) => p.premium).reduce((a, b) => a < b ? a : b);
@@ -265,7 +681,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           const SizedBox(height: 28),
-          Row(
+          Wrap(
+            spacing: 14,
+            runSpacing: 14,
             children: [
               ElevatedButton(
                 onPressed: () {
@@ -295,8 +713,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: child,
                         );
                       },
-                      transitionDuration:
-                      const Duration(milliseconds: 500),
+                      transitionDuration: const Duration(milliseconds: 500),
                     ),
                   );
                 },
@@ -331,7 +748,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              const SizedBox(width: 14),
               OutlinedButton(
                 onPressed: () {
                   NotificationService.lightImpact();
@@ -359,8 +775,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: child,
                         );
                       },
-                      transitionDuration:
-                      const Duration(milliseconds: 500),
+                      transitionDuration: const Duration(milliseconds: 500),
                     ),
                   );
                 },
