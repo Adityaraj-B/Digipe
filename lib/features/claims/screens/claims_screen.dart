@@ -1,10 +1,10 @@
-import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import '../bloc/claims_bloc.dart';
+import '../../../core/services/api_service.dart';
 import '../../../core/widgets/Cards.dart';
 
 class ClaimsScreen extends StatefulWidget {
@@ -14,7 +14,8 @@ class ClaimsScreen extends StatefulWidget {
   State<ClaimsScreen> createState() => _ClaimsScreenState();
 }
 
-class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderStateMixin {
+class _ClaimsScreenState extends State<ClaimsScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String? _selectedPolicyId;
   DateTime? _incidentDate;
@@ -22,14 +23,24 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
   bool _consentChecked = false;
   String _searchQuery = '';
   String _filterStatus = 'All Status';
-  final List<String> _filterOptions = ['All Status', 'Pending', 'Approved', 'Rejected'];
+  final List<String> _filterOptions = [
+    'All Status',
+    'Pending',
+    'Approved',
+    'Rejected'
+  ];
 
   final TextEditingController _dateController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
 
   final ImagePicker _imagePicker = ImagePicker();
-  final List<File?> _imageFiles = List.filled(5, null);
-  File? _videoFile;
+  final List<String?> _imageIds = List.filled(5, null);
+  final List<String?> _imageUrls = List.filled(5, null);
+  final List<bool> _imageUploading = List.filled(5, false);
+
+  String? _videoId;
+  String? _videoName;
+  bool _videoUploading = false;
 
   final List<String> _damageTypes = [
     'Storm / Cyclone Damage',
@@ -76,13 +87,21 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
       maxWidth: 1920,
     );
     if (pickedFile != null) {
-      final file = File(pickedFile.path);
-      final size = await file.length();
-      if (size > 10 * 1024 * 1024) {
-        _showError('Image must be under 10 MB.');
-        return;
+      setState(() => _imageUploading[index] = true);
+      try {
+        if (!mounted) return;
+        final doc = await context
+            .read<ApiService>()
+            .uploadDocumentFull(pickedFile.path);
+        setState(() {
+          _imageUrls[index] = doc['url'];
+          _imageIds[index] = doc['_id'] ?? doc['id'];
+        });
+      } catch (e) {
+        _showError('Upload failed: $e');
+      } finally {
+        setState(() => _imageUploading[index] = false);
       }
-      setState(() => _imageFiles[index] = file);
     }
   }
 
@@ -92,13 +111,21 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
       allowMultiple: false,
     );
     if (result != null && result.files.single.path != null) {
-      final file = File(result.files.single.path!);
-      final size = await file.length();
-      if (size > 100 * 1024 * 1024) {
-        _showError('Video must be under 100 MB.');
-        return;
+      setState(() => _videoUploading = true);
+      try {
+        if (!mounted) return;
+        final doc = await context
+            .read<ApiService>()
+            .uploadDocumentFull(result.files.single.path!);
+        setState(() {
+          _videoId = doc['_id'] ?? doc['id'];
+          _videoName = result.files.single.name;
+        });
+      } catch (e) {
+        _showError('Upload failed: $e');
+      } finally {
+        setState(() => _videoUploading = false);
       }
-      setState(() => _videoFile = file);
     }
   }
 
@@ -124,7 +151,8 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
       ),
       builder: (context) => SafeArea(
         child: Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          padding:
+              EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -139,16 +167,20 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
               ),
               const SizedBox(height: 16),
               ListTile(
-                leading: const Icon(Icons.camera_alt_outlined, color: AppColors.ink),
-                title: const Text('Take a Photo', style: TextStyle(fontWeight: FontWeight.w600)),
+                leading:
+                    const Icon(Icons.camera_alt_outlined, color: AppColors.ink),
+                title: const Text('Take a Photo',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
                 onTap: () {
                   Navigator.pop(context);
                   _pickImage(ImageSource.camera, index);
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.photo_library_outlined, color: AppColors.ink),
-                title: const Text('Choose Photo from Gallery', style: TextStyle(fontWeight: FontWeight.w600)),
+                leading: const Icon(Icons.photo_library_outlined,
+                    color: AppColors.ink),
+                title: const Text('Choose Photo from Gallery',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
                 onTap: () {
                   Navigator.pop(context);
                   _pickImage(ImageSource.gallery, index);
@@ -181,7 +213,8 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                     indicatorColor: AppColors.inkStrong,
                     labelColor: AppColors.inkStrong,
                     unselectedLabelColor: AppColors.bodyGrey,
-                    labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                    labelStyle: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w600),
                     tabs: const [
                       Tab(text: 'Raise a Claim'),
                       Tab(text: 'Track Claims'),
@@ -195,10 +228,12 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                         if (state is ClaimSubmitSuccess) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: const Text('Claim submitted successfully.'),
+                              content:
+                                  const Text('Claim submitted successfully.'),
                               backgroundColor: AppColors.successFg,
                               behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
                             ),
                           );
                           _dateController.clear();
@@ -208,8 +243,12 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                             _incidentDate = null;
                             _typeOfDamage = null;
                             _consentChecked = false;
-                            _imageFiles.fillRange(0, 5, null);
-                            _videoFile = null;
+                            _imageIds.fillRange(0, 5, null);
+                            _imageUrls.fillRange(0, 5, null);
+                            _imageUploading.fillRange(0, 5, false);
+                            _videoId = null;
+                            _videoName = null;
+                            _videoUploading = false;
                           });
                           _tabController.animateTo(1);
                         }
@@ -217,7 +256,8 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                       builder: (context, state) {
                         if (state is ClaimsLoading || state is ClaimsInitial) {
                           return const Center(
-                            child: CircularProgressIndicator(color: AppColors.inkStrong, strokeWidth: 2.5),
+                            child: CircularProgressIndicator(
+                                color: AppColors.inkStrong, strokeWidth: 2.5),
                           );
                         } else if (state is ClaimsError) {
                           return PremiumEmptyState(
@@ -240,7 +280,8 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                                     shape: BoxShape.circle,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.05),
+                                        color: Colors.black
+                                            .withValues(alpha: 0.05),
                                         blurRadius: 16,
                                         offset: const Offset(0, 4),
                                       ),
@@ -298,7 +339,9 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
         _typeOfDamage != null &&
         _descController.text.trim().isNotEmpty &&
         _consentChecked &&
-        _imageFiles[0] != null;
+        _imageIds[0] != null &&
+        !_imageUploading.contains(true) &&
+        !_videoUploading;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -306,7 +349,8 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
         final isTiny = constraints.maxWidth < 360;
 
         return SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(isCompact ? 16 : 32, 24, isCompact ? 16 : 32, 40),
+          padding: EdgeInsets.fromLTRB(
+              isCompact ? 16 : 32, 24, isCompact ? 16 : 32, 40),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -335,13 +379,15 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                       }).toList(),
                       onChanged: data.eligiblePolicies.isEmpty
                           ? null
-                          : (value) => setState(() => _selectedPolicyId = value),
+                          : (value) =>
+                              setState(() => _selectedPolicyId = value),
                     ),
                     if (data.eligiblePolicies.isEmpty) ...[
                       const SizedBox(height: 8),
                       const Text(
                         'You have no active policies eligible for a claim.',
-                        style: TextStyle(fontSize: 12, color: AppColors.dangerFg),
+                        style:
+                            TextStyle(fontSize: 12, color: AppColors.dangerFg),
                       ),
                     ],
                     const SizedBox(height: 20),
@@ -350,8 +396,10 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                     TextField(
                       controller: _dateController,
                       readOnly: true,
-                      decoration: _inputDecoration('Select damage date').copyWith(
-                        suffixIcon: const Icon(Icons.calendar_today_outlined, size: 18, color: AppColors.bodyGrey),
+                      decoration:
+                          _inputDecoration('Select damage date').copyWith(
+                        suffixIcon: const Icon(Icons.calendar_today_outlined,
+                            size: 18, color: AppColors.bodyGrey),
                       ),
                       onTap: () async {
                         final date = await showDatePicker(
@@ -363,7 +411,8 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                         if (date != null) {
                           setState(() {
                             _incidentDate = date;
-                            _dateController.text = '${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}';
+                            _dateController.text =
+                                '${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}';
                           });
                         }
                       },
@@ -388,19 +437,23 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                           ),
                         );
                       }).toList(),
-                      onChanged: (value) => setState(() => _typeOfDamage = value),
+                      onChanged: (value) =>
+                          setState(() => _typeOfDamage = value),
                     ),
                     const SizedBox(height: 24),
-                    const _FieldLabel('Upload Damage Photos (Photo 1 Compulsory, 2-5 Optional) *'),
+                    const _FieldLabel(
+                        'Upload Damage Photos (Photo 1 Compulsory, 2-5 Optional) *'),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 12,
                       runSpacing: 12,
                       alignment: WrapAlignment.start,
                       children: List.generate(5, (index) {
-                        final file = _imageFiles[index];
+                        final url = _imageUrls[index];
+                        final isUploading = _imageUploading[index];
                         final isCompulsory = index == 0;
-                        final boxSize = isTiny ? (constraints.maxWidth - 60) / 2 : 72.0;
+                        final boxSize =
+                            isTiny ? (constraints.maxWidth - 60) / 2 : 72.0;
 
                         return GestureDetector(
                           onTap: () => _showAttachmentOptions(index),
@@ -409,65 +462,96 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                             height: boxSize,
                             child: Container(
                               decoration: BoxDecoration(
-                                color: file != null ? Colors.transparent : (isCompulsory && file == null ? AppColors.dangerBg.withValues(alpha: 0.2) : AppColors.surface),
+                                color: url != null
+                                    ? Colors.transparent
+                                    : (isCompulsory && url == null
+                                        ? AppColors.dangerBg
+                                            .withValues(alpha: 0.2)
+                                        : AppColors.surface),
                                 border: Border.all(
-                                  color: isCompulsory && file == null ? AppColors.dangerFg.withValues(alpha: 0.5) : AppColors.border,
-                                  style: file != null ? BorderStyle.solid : BorderStyle.none,
+                                  color: isCompulsory && url == null
+                                      ? AppColors.dangerFg
+                                          .withValues(alpha: 0.5)
+                                      : AppColors.border,
+                                  style: url != null
+                                      ? BorderStyle.solid
+                                      : BorderStyle.none,
                                 ),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: file != null
-                                  ? ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
-                                child: Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    Image.file(file, fit: BoxFit.cover),
-                                    Positioned(
-                                      top: 4,
-                                      right: 4,
-                                      child: GestureDetector(
-                                        onTap: () => setState(() => _imageFiles[index] = null),
-                                        child: Container(
-                                          padding: const EdgeInsets.all(4),
-                                          decoration: const BoxDecoration(
-                                            color: Colors.black54,
-                                            shape: BoxShape.circle,
+                              child: isUploading
+                                  ? const Center(
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: AppColors.inkStrong))
+                                  : url != null
+                                      ? ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                          child: Stack(
+                                            fit: StackFit.expand,
+                                            children: [
+                                              Image.network(url,
+                                                  fit: BoxFit.cover),
+                                              Positioned(
+                                                top: 4,
+                                                right: 4,
+                                                child: GestureDetector(
+                                                  onTap: () => setState(() {
+                                                    _imageUrls[index] = null;
+                                                    _imageIds[index] = null;
+                                                  }),
+                                                  child: Container(
+                                                    padding:
+                                                        const EdgeInsets.all(4),
+                                                    decoration:
+                                                        const BoxDecoration(
+                                                      color: Colors.black54,
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                    child: const Icon(
+                                                        Icons.close,
+                                                        size: 12,
+                                                        color: Colors.white),
+                                                  ),
+                                                ),
+                                              )
+                                            ],
                                           ),
-                                          child: const Icon(Icons.close, size: 12, color: Colors.white),
+                                        )
+                                      : CustomPaint(
+                                          painter: DashedBorderPainter(
+                                            color: isCompulsory
+                                                ? AppColors.dangerFg
+                                                    .withValues(alpha: 0.5)
+                                                : AppColors.border,
+                                          ),
+                                          child: Column(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                '+${index + 1}',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: isCompulsory
+                                                      ? AppColors.dangerFg
+                                                      : AppColors.ink,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                              if (isCompulsory)
+                                                const Text(
+                                                  'Req',
+                                                  style: TextStyle(
+                                                    fontSize: 9,
+                                                    color: AppColors.dangerFg,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
                                         ),
-                                      ),
-                                    )
-                                  ],
-                                ),
-                              )
-                                  : CustomPaint(
-                                painter: DashedBorderPainter(
-                                  color: isCompulsory ? AppColors.dangerFg.withValues(alpha: 0.5) : AppColors.border,
-                                ),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      '+${index + 1}',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: isCompulsory ? AppColors.dangerFg : AppColors.ink,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    if (isCompulsory)
-                                      const Text(
-                                        'Req',
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          color: AppColors.dangerFg,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
                             ),
                           ),
                         );
@@ -488,34 +572,71 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                         child: CustomPaint(
                           painter: DashedBorderPainter(color: AppColors.border),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-                            child: _videoFile != null
-                                ? Column(
-                              children: [
-                                const Icon(Icons.video_file_outlined, size: 28, color: AppColors.successFg),
-                                const SizedBox(height: 8),
-                                Text(
-                                  _videoFile!.path.split('/').last,
-                                  style: const TextStyle(fontSize: 13, color: AppColors.ink, fontWeight: FontWeight.w600),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 8),
-                                GestureDetector(
-                                  onTap: () => setState(() => _videoFile = null),
-                                  child: const Text('Remove Video', style: TextStyle(fontSize: 12, color: AppColors.dangerFg, fontWeight: FontWeight.w600)),
-                                ),
-                              ],
-                            )
-                                : const Column(
-                              children: [
-                                Icon(Icons.videocam_outlined, size: 24, color: AppColors.bodyGrey),
-                                SizedBox(height: 8),
-                                Text('Upload Damage Video', style: TextStyle(fontSize: 13, color: AppColors.ink, fontWeight: FontWeight.w600)),
-                                SizedBox(height: 4),
-                                Text('MP4, WebM, MOV (Max 100MB)', style: TextStyle(fontSize: 11, color: AppColors.bodyGrey)),
-                              ],
-                            ),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 24, horizontal: 16),
+                            child: _videoUploading
+                                ? const Column(
+                                    children: [
+                                      CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: AppColors.inkStrong),
+                                      SizedBox(height: 8),
+                                      Text('Uploading...',
+                                          style: TextStyle(
+                                              fontSize: 13,
+                                              color: AppColors.ink,
+                                              fontWeight: FontWeight.w600)),
+                                    ],
+                                  )
+                                : _videoId != null
+                                    ? Column(
+                                        children: [
+                                          const Icon(Icons.video_file_outlined,
+                                              size: 28,
+                                              color: AppColors.successFg),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            _videoName ?? 'Video Uploaded',
+                                            style: const TextStyle(
+                                                fontSize: 13,
+                                                color: AppColors.ink,
+                                                fontWeight: FontWeight.w600),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          GestureDetector(
+                                            onTap: () => setState(() {
+                                              _videoId = null;
+                                              _videoName = null;
+                                            }),
+                                            child: const Text('Remove Video',
+                                                style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: AppColors.dangerFg,
+                                                    fontWeight:
+                                                        FontWeight.w600)),
+                                          ),
+                                        ],
+                                      )
+                                    : const Column(
+                                        children: [
+                                          Icon(Icons.videocam_outlined,
+                                              size: 24,
+                                              color: AppColors.bodyGrey),
+                                          SizedBox(height: 8),
+                                          Text('Upload Damage Video',
+                                              style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: AppColors.ink,
+                                                  fontWeight: FontWeight.w600)),
+                                          SizedBox(height: 4),
+                                          Text('MP4, WebM, MOV (Max 100MB)',
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: AppColors.bodyGrey)),
+                                        ],
+                                      ),
                           ),
                         ),
                       ),
@@ -527,7 +648,8 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                       controller: _descController,
                       maxLines: 4,
                       onChanged: (_) => setState(() {}),
-                      decoration: _inputDecoration('Provide details about the damage incident..'),
+                      decoration: _inputDecoration(
+                          'Provide details about the damage incident..'),
                     ),
                     const SizedBox(height: 20),
                     Row(
@@ -538,17 +660,23 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                           height: 24,
                           child: Checkbox(
                             value: _consentChecked,
-                            onChanged: (val) => setState(() => _consentChecked = val ?? false),
+                            onChanged: (val) =>
+                                setState(() => _consentChecked = val ?? false),
                             activeColor: AppColors.dangerFg,
-                            side: const BorderSide(color: AppColors.border, width: 1.5),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                            side: const BorderSide(
+                                color: AppColors.border, width: 1.5),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4)),
                           ),
                         ),
                         const SizedBox(width: 12),
                         const Expanded(
                           child: Text(
                             'I confirm that all given details are correct and the uploaded photos accurately represent the damage. *',
-                            style: TextStyle(fontSize: 12, color: AppColors.bodyGrey, height: 1.4),
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.bodyGrey,
+                                height: 1.4),
                           ),
                         ),
                       ],
@@ -559,19 +687,19 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
               const SizedBox(height: 20),
               isTiny
                   ? Column(
-                children: [
-                  _buildCancelButton(),
-                  const SizedBox(height: 12),
-                  _buildConfirmButton(canSubmit),
-                ],
-              )
+                      children: [
+                        _buildCancelButton(),
+                        const SizedBox(height: 12),
+                        _buildConfirmButton(canSubmit),
+                      ],
+                    )
                   : Row(
-                children: [
-                  Expanded(child: _buildCancelButton()),
-                  const SizedBox(width: 16),
-                  Expanded(child: _buildConfirmButton(canSubmit)),
-                ],
-              ),
+                      children: [
+                        Expanded(child: _buildCancelButton()),
+                        const SizedBox(width: 16),
+                        Expanded(child: _buildConfirmButton(canSubmit)),
+                      ],
+                    ),
               const SizedBox(height: 50),
             ],
           ),
@@ -593,8 +721,12 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
             _incidentDate = null;
             _typeOfDamage = null;
             _consentChecked = false;
-            _imageFiles.fillRange(0, 5, null);
-            _videoFile = null;
+            _imageIds.fillRange(0, 5, null);
+            _imageUrls.fillRange(0, 5, null);
+            _imageUploading.fillRange(0, 5, false);
+            _videoId = null;
+            _videoName = null;
+            _videoUploading = false;
           });
           _tabController.animateTo(1);
         },
@@ -607,7 +739,8 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
           ),
           elevation: 0,
         ),
-        child: const Text('Cancel', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+        child: const Text('Cancel',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
       ),
     );
   }
@@ -619,41 +752,44 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
       child: ElevatedButton(
         onPressed: canSubmit
             ? () {
-          final List<String> paths = [];
-          for (var file in _imageFiles) {
-            if (file != null) paths.add(file.path);
-          }
-          if (_videoFile != null) paths.add(_videoFile!.path);
+                final imageIds = _imageIds.whereType<String>().toList();
+                final videoIds = _videoId != null ? [_videoId!] : <String>[];
 
-          BlocProvider.of<ClaimsBloc>(context).add(
-            SubmitClaimEvent(
-              policyId: _selectedPolicyId!,
-              incidentDate: _incidentDate,
-              typeOfDamage: _typeOfDamage,
-              description: _descController.text.trim(),
-              claimAmount: 1000,
-              evidencePaths: paths,
-            ),
-          );
-        }
+                BlocProvider.of<ClaimsBloc>(context).add(
+                  SubmitClaimEvent(
+                    policyId: _selectedPolicyId!,
+                    incidentDate: _incidentDate,
+                    typeOfDamage: _typeOfDamage,
+                    description: _descController.text.trim(),
+                    claimAmount: 1000,
+                    imageIds: imageIds,
+                    videoIds: videoIds,
+                  ),
+                );
+              }
             : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFFF8A8A),
           foregroundColor: Colors.white,
-          disabledBackgroundColor: const Color(0xFFFF8A8A).withValues(alpha: 0.5),
+          disabledBackgroundColor:
+              const Color(0xFFFF8A8A).withValues(alpha: 0.5),
           disabledForegroundColor: Colors.white.withValues(alpha: 0.7),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           elevation: 0,
         ),
-        child: const Text('Confirm Claim', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+        child: const Text('Confirm Claim',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
       ),
     );
   }
 
   Widget _buildTrackClaimsTab(ClaimsData data) {
     final filteredClaims = data.claimHistory.where((claim) {
-      final matchesSearch = claim.claimId.toLowerCase().contains(_searchQuery.toLowerCase());
-      final matchesFilter = _filterStatus == 'All Status' || claim.status == _filterStatus;
+      final matchesSearch =
+          claim.claimId.toLowerCase().contains(_searchQuery.toLowerCase());
+      final matchesFilter =
+          _filterStatus == 'All Status' || claim.status == _filterStatus;
       return matchesSearch && matchesFilter;
     }).toList();
 
@@ -668,8 +804,10 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
               final searchField = TextField(
                 onChanged: (val) => setState(() => _searchQuery = val),
                 decoration: _inputDecoration('Search Claim ID...').copyWith(
-                  prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.bodyGrey),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  prefixIcon: const Icon(Icons.search,
+                      size: 20, color: AppColors.bodyGrey),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
               );
 
@@ -678,7 +816,8 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                 isDense: true,
                 isExpanded: true,
                 decoration: _inputDecoration('').copyWith(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
                 icon: const Icon(Icons.filter_list, size: 18),
                 items: _filterOptions.map((status) {
@@ -688,11 +827,13 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                       status,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600),
                     ),
                   );
                 }).toList(),
-                onChanged: (val) => setState(() => _filterStatus = val ?? 'All Status'),
+                onChanged: (val) =>
+                    setState(() => _filterStatus = val ?? 'All Status'),
               );
 
               if (isCompact) {
@@ -718,57 +859,74 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
         Expanded(
           child: filteredClaims.isEmpty
               ? const PremiumEmptyState(
-            icon: Icons.search_off_rounded,
-            iconBg: AppColors.neutralBg,
-            iconFg: AppColors.neutralFg,
-            message: "No claims found matching your criteria.",
-          )
+                  icon: Icons.search_off_rounded,
+                  iconBg: AppColors.neutralBg,
+                  iconFg: AppColors.neutralFg,
+                  message: "No claims found matching your criteria.",
+                )
               : ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 40),
-            itemCount: filteredClaims.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 16),
-            itemBuilder: (context, index) {
-              final claim = filteredClaims[index];
-              final (bg, fg) = _statusColors(claim.status);
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 40),
+                  itemCount: filteredClaims.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 16),
+                  itemBuilder: (context, index) {
+                    final claim = filteredClaims[index];
+                    final (bg, fg) = _statusColors(claim.status);
 
-              return GestureDetector(
-                onTap: () => _showClaimDetailsModal(claim),
-                child: PremiumCard(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(child: MetaItem(label: 'CLAIM ID', value: claim.claimId)),
-                          StatusChip(label: claim.status, background: bg, foreground: fg),
-                        ],
+                    return GestureDetector(
+                      onTap: () => _showClaimDetailsModal(claim),
+                      child: PremiumCard(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                    child: MetaItem(
+                                        label: 'CLAIM ID',
+                                        value: claim.claimId)),
+                                StatusChip(
+                                    label: claim.status,
+                                    background: bg,
+                                    foreground: fg),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            const FadedDivider(),
+                            const SizedBox(height: 20),
+                            Row(
+                              children: [
+                                Expanded(
+                                    child: MetaItem(
+                                        label: 'Policy',
+                                        value: claim.policyName)),
+                                Expanded(
+                                    child: MetaItem(
+                                        label: 'Date Filed',
+                                        value: claim.date)),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            const Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Text('View Details',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.inkStrong)),
+                                SizedBox(width: 4),
+                                Icon(Icons.arrow_forward_ios_rounded,
+                                    size: 10, color: AppColors.inkStrong),
+                              ],
+                            )
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 20),
-                      const FadedDivider(),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          Expanded(child: MetaItem(label: 'Policy', value: claim.policyName)),
-                          Expanded(child: MetaItem(label: 'Date Filed', value: claim.date)),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      const Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Text('View Details', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.inkStrong)),
-                          SizedBox(width: 4),
-                          Icon(Icons.arrow_forward_ios_rounded, size: 10, color: AppColors.inkStrong),
-                        ],
-                      )
-                    ],
-                  ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
         ),
       ],
     );
@@ -781,7 +939,8 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
       context: context,
       backgroundColor: Colors.white,
       isScrollControlled: true,
-      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
+      constraints:
+          BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -796,10 +955,15 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Flexible(
-                    child: Text('Claim Details', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.ink)),
+                    child: Text('Claim Details',
+                        style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.ink)),
                   ),
                   const SizedBox(width: 12),
-                  StatusChip(label: claim.status, background: bg, foreground: fg),
+                  StatusChip(
+                      label: claim.status, background: bg, foreground: fg),
                 ],
               ),
               const SizedBox(height: 24),
@@ -825,16 +989,25 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: claim.status == 'Pending' ? AppColors.warnBg : AppColors.neutralBg,
+                  color: claim.status == 'Pending'
+                      ? AppColors.warnBg
+                      : AppColors.neutralBg,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: claim.status == 'Pending' ? AppColors.warnFg.withValues(alpha: 0.2) : AppColors.border),
+                  border: Border.all(
+                      color: claim.status == 'Pending'
+                          ? AppColors.warnFg.withValues(alpha: 0.2)
+                          : AppColors.border),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
-                      claim.status == 'Pending' ? Icons.access_time_rounded : Icons.info_outline_rounded,
-                      color: claim.status == 'Pending' ? AppColors.warnFg : AppColors.bodyGrey,
+                      claim.status == 'Pending'
+                          ? Icons.access_time_rounded
+                          : Icons.info_outline_rounded,
+                      color: claim.status == 'Pending'
+                          ? AppColors.warnFg
+                          : AppColors.bodyGrey,
                       size: 20,
                     ),
                     const SizedBox(width: 12),
@@ -845,10 +1018,11 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                             : 'This claim has been processed.',
                         style: TextStyle(
                             fontSize: 13,
-                            color: claim.status == 'Pending' ? AppColors.warnFg : AppColors.bodyGrey,
+                            color: claim.status == 'Pending'
+                                ? AppColors.warnFg
+                                : AppColors.bodyGrey,
                             height: 1.4,
-                            fontWeight: FontWeight.w500
-                        ),
+                            fontWeight: FontWeight.w500),
                       ),
                     ),
                   ],
@@ -863,9 +1037,12 @@ class _ClaimsScreenState extends State<ClaimsScreen> with SingleTickerProviderSt
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.ink,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
                   ),
-                  child: const Text('Close', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                  child: const Text('Close',
+                      style:
+                          TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
                 ),
               )
             ],
@@ -906,7 +1083,11 @@ class _FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.valueDark, letterSpacing: 0.5),
+      style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: AppColors.valueDark,
+          letterSpacing: 0.5),
     );
   }
 }
@@ -927,7 +1108,9 @@ class DashedBorderPainter extends CustomPainter {
     const dashSpace = 4.0;
 
     final path = Path()
-      ..addRRect(RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, size.width, size.height), const Radius.circular(10)));
+      ..addRRect(RRect.fromRectAndRadius(
+          Rect.fromLTWH(0, 0, size.width, size.height),
+          const Radius.circular(10)));
 
     for (ui.PathMetric pathMetric in path.computeMetrics()) {
       double distance = 0.0;

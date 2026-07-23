@@ -104,12 +104,10 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
 
       // 1. Map Policies
       final List<UnifiedOrder> mappedPolicies = policiesResult.map((pol) {
-        // Safe check for null policy
-        if (pol == null) return null;
+        // Safe check for null policy (removed as it's non-nullable)
 
         final activeClaim = claimsResult.firstWhere(
           (c) {
-            if (c == null) return false;
             final policyData = c['policy'];
             final policyId = policyData is Map ? policyData['_id'] : policyData;
             return policyId == pol['_id'];
@@ -174,15 +172,12 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
 
       // 2. Map Applications (Without Policies)
       final mappedApplications = applicationsResult.where((app) {
-        if (app == null) return false;
         final appId = app['_id'] ?? app['id'];
         return !policiesResult.any((pol) {
-          if (pol == null) return false;
           final polAppId = pol['application'] is Map ? pol['application']['_id'] : pol['application'];
           return polAppId == appId;
         });
       }).map((app) {
-        if (app == null) return null;
         final appId = app['_id'] ?? app['id'];
         String statusStr = 'Pending Approval';
         if (app['status'] == 'UNDER_REVIEW') statusStr = 'Pending Approval';

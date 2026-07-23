@@ -4,7 +4,6 @@ import 'package:flutter_cashfree_pg_sdk/api/cfsession/cfsession.dart';
 import 'package:flutter_cashfree_pg_sdk/api/cferrorresponse/cferrorresponse.dart';
 import 'package:flutter_cashfree_pg_sdk/utils/cfenums.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'api_service.dart';
@@ -74,9 +73,9 @@ class PaymentService {
       dev.log('[Payment] DEBUG — paymentSessionId length: ${paymentSessionId.length}');
       dev.log('[Payment] DEBUG — cashfreeOrderId raw value: "$cashfreeOrderId"');
 
-      // Note: Reverted to SANDBOX to align with your current backend TEST keys
+      // PRODUCTION environment for Play Store / live payments
       final session = CFSessionBuilder()
-          .setEnvironment(CFEnvironment.SANDBOX)
+          .setEnvironment(CFEnvironment.PRODUCTION)
           .setPaymentSessionId(paymentSessionId)
           .setOrderId(cashfreeOrderId)
           .build();
@@ -115,7 +114,11 @@ class PaymentService {
       CFPaymentGatewayService().doPayment(cfPayment);
 
     } on DioException catch (e) {
-      _handleDioError(context, e, onFailure);
+      if (context.mounted) {
+        _handleDioError(context, e, onFailure);
+      } else {
+        onFailure();
+      }
     } catch (e, stack) {
       dev.log('[Payment] Unexpected error: $e\n$stack');
       onFailure();
@@ -247,6 +250,7 @@ class PaymentService {
               ],
             ),
           );
+          onFailure();
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(message.isNotEmpty
@@ -275,20 +279,21 @@ class PaymentService {
             ],
           ),
         );
+        onFailure();
 
       case 409:
-      // Order already paid — navigate to policies instead of showing error
+      // Order already paid — notify user and go back
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('This order has already been paid. Viewing your policies.'),
-            duration: Duration(seconds: 2),
+            content: Text('This order has already been paid.'),
+            duration: Duration(seconds: 3),
           ),
         );
-        Future.delayed(const Duration(seconds: 2), () {
-          if (context.mounted) {
-            Navigator.pushReplacementNamed(context, '/my-policies');
-          }
-        });
+        // Pop back to the previous screen (order list / home)
+        if (context.mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+        onFailure();
 
       case 404:
         ScaffoldMessenger.of(context).showSnackBar(

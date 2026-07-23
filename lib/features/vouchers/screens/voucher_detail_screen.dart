@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../services/voucher_service.dart';
 import '../models/voucher_models.dart';
-import 'voucher_processing_screen.dart';
+
 
 class VoucherDetailScreen extends StatefulWidget {
   final String productId;
@@ -729,16 +729,21 @@ class _VoucherDetailScreenState extends State<VoucherDetailScreen> {
                   onPressed: _isSelectionValid
                       ? () {
                     HapticFeedback.mediumImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => VoucherProcessingScreen(
-                          productId: _brand!.productId,
-                          denominationDetails: [
-                            {'denomination': _selectedDenomination!.toInt(), 'quantity': _quantity}
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          title: const Text('Coming Soon', style: TextStyle(fontWeight: FontWeight.bold)),
+                          content: const Text('Voucher redemption is still in implementation and will be available in a future update.'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('OK', style: TextStyle(fontWeight: FontWeight.w600)),
+                            ),
                           ],
-                        ),
-                      ),
+                        );
+                      },
                     );
                   }
                       : null,

@@ -73,11 +73,10 @@ class AuthRepository {
   Future<String> requestOtp(String phone) async {
     dev.log('Requesting OTP for: $phone', name: 'AuthRepository');
     try {
-      final isEmail = phone.contains('@');
       final response = await _client.post(
         '/auth/send-otp',
         data: {
-          if (isEmail) 'email': phone else 'mobileNumber': phone,
+          'mobileNumber': phone,
         },
       );
       dev.log('send-otp raw response: ${response.data}', name: 'AuthRepository');

@@ -1,8 +1,10 @@
 import 'package:tracelet/tracelet.dart' as tl;
+import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'geofence_api_service.dart';
 import 'geofence_event_handler.dart';
-import '../models/geofence_models.dart';
+
+
 
 class GeofenceManager {
   final GeofenceApiService _apiService;
@@ -15,7 +17,7 @@ class GeofenceManager {
     if (!locationStatus.isGranted) {
       final requestedLocation = await Permission.locationWhenInUse.request();
       if (!requestedLocation.isGranted) {
-        print('Tracelet initialization skipped: location permission not granted.');
+        debugPrint('Tracelet initialization skipped: location permission not granted.');
         return;
       }
     }
@@ -79,7 +81,7 @@ class GeofenceManager {
       // RADIUS CLAMPING: Radii under 100m are unreliable for GPS
       double radius = store.radiusMeters;
       if (radius < 100) {
-        print('WARNING: Radius for ${store.name} is ${radius}m. Clamping to 100m for reliability.');
+        debugPrint('WARNING: Radius for ${store.name} is ${radius}m. Clamping to 100m for reliability.');
         radius = 100;
       }
 

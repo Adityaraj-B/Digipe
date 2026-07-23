@@ -11,6 +11,7 @@ import 'core/repositories/claims_repository.dart';
 import 'core/services/api_service.dart';
 import 'core/network/api_client.dart';
 import 'features/auth/screens/signup_screen.dart';
+import 'features/onboarding/screens/onboarding_screen.dart';
 import 'features/main_layout/screens/main_layout_screen.dart';
 import 'features/orders/bloc/orders_bloc.dart';
 import 'features/claims/bloc/claims_bloc.dart';
@@ -33,8 +34,12 @@ import 'features/geofencing/screens/store_offer_screen.dart';
 import 'features/vouchers/services/voucher_service.dart';
 import 'features/vouchers/bloc/voucher_bloc.dart';
 import 'features/vouchers/bloc/redemption_bloc.dart';
-import 'features/vouchers/screens/voucher_catalog_screen.dart';
-import 'features/vouchers/screens/voucher_history_screen.dart';
+
+
+// Hubble SDK Imports
+import 'features/vouchers/services/hubble_sdk_service.dart';
+import 'features/vouchers/bloc/hubble_bloc.dart';
+import 'features/vouchers/screens/hubble_store_screen.dart';
 
 // Global Navigator Key for Deep Linking
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -73,6 +78,9 @@ void main() async {
 
   // Voucher Service
   final voucherService = VoucherService(apiClient.dio);
+
+  // Hubble SDK Service
+  final hubbleSdkService = HubbleSdkService(apiClient.dio);
 
   // Initialize Geofencing & Notifications
   geofenceNotificationHandler.initialize();
@@ -114,6 +122,7 @@ void main() async {
         RepositoryProvider<GeofenceManager>.value(value: geofenceManager),
         RepositoryProvider<GeofenceEventHandler>.value(value: geofenceEventHandler),
         RepositoryProvider<VoucherService>.value(value: voucherService),
+        RepositoryProvider<HubbleSdkService>.value(value: hubbleSdkService),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -134,6 +143,9 @@ void main() async {
           ),
           BlocProvider(
             create: (context) => RedemptionBloc(voucherService: voucherService),
+          ),
+          BlocProvider(
+            create: (context) => HubbleBloc(service: hubbleSdkService),
           ),
         ],
         child: const MyApp(),
@@ -224,10 +236,7 @@ class MyApp extends StatelessWidget {
           );
         }
         if (settings.name == '/vouchers') {
-          return MaterialPageRoute(builder: (_) => const VoucherCatalogScreen());
-        }
-        if (settings.name == '/vouchers/history') {
-          return MaterialPageRoute(builder: (_) => const VoucherHistoryScreen());
+          return MaterialPageRoute(builder: (_) => const HubbleStoreScreen());
         }
         return null;
       },
@@ -261,6 +270,9 @@ class MyApp extends StatelessWidget {
     }
     if (state is AuthInitial) {
       return const SplashScreen(key: ValueKey('loading'));
+    }
+    if (state is AuthOnboarding) {
+      return const OnboardingScreen(key: ValueKey('onboarding'));
     }
     return const SignupScreen(key: ValueKey('signup'));
   }

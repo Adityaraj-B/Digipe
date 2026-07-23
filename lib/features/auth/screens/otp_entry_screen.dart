@@ -66,7 +66,10 @@ class _OtpEntryScreenState extends State<OtpEntryScreen> {
   void _onResend() {
     final state = context.read<AuthBloc>().state;
     if (state is AwaitingOtp) {
-      context.read<AuthBloc>().add(SendOtpRequested(state.phoneNumber));
+      // Always resend to verificationIdentifier (email after registration,
+      // phone after login). Using phoneNumber was wrong for register mode
+      // because Surefy only knows the email identity post-registration.
+      context.read<AuthBloc>().add(SendOtpRequested(state.verificationIdentifier));
       _startCooldown();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('A new OTP has been sent.'))

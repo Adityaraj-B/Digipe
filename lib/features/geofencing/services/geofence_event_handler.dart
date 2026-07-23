@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'geofence_api_service.dart';
 import '../models/geofence_models.dart';
 import '../../../core/services/notification_service.dart';
+
 
 class GeofenceEventHandler {
   final GeofenceApiService _apiService;
@@ -29,7 +31,7 @@ class GeofenceEventHandler {
       );
     } catch (e) {
       // Non-critical: log and continue
-      print('Failed to report geofence ENTER to backend: $e');
+      debugPrint('Failed to report geofence ENTER to backend: $e');
     }
 
     if (isWithinCooldown) return;
@@ -67,7 +69,7 @@ class GeofenceEventHandler {
         longitude: lng,
       );
     } catch (e) {
-      print('Failed to report geofence EXIT to backend: $e');
+      debugPrint('Failed to report geofence EXIT to backend: $e');
     }
   }
 }

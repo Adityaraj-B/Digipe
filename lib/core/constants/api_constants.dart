@@ -40,4 +40,8 @@ class ApiConstants {
 
   // Document Upload (2-step submission process)
   static const String upload = '/api/documents/upload';
+
+  // Hubble SDK (Gift Card / Voucher Store)
+  static const String hubbleSdkToken = '/api/hubble/sdk-token';
+  static const String hubbleTransactions = '/api/hubble/transactions';
 }

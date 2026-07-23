@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/foundation.dart';
 import '../service/order_tracking_model.dart';
 import '../service/order_tracking_repo.dart';
 
@@ -99,7 +100,7 @@ class OrderTrackingBloc
             (state as OrderTrackingRefreshing).currentOrder));
       }
       // Log for debugging
-      print('[OrderTracking] Refresh error: $e');
+      debugPrint('[OrderTracking] Refresh error: $e');
       emit(OrderTrackingError(_friendlyMessage(e)));
     }
   }

@@ -5,10 +5,10 @@ import '../../../../core/widgets/Cards.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../product/bloc/product_bloc.dart';
 import '../../product/screens/product_screen.dart';
-import '../../vouchers/screens/voucher_catalog_screen.dart';
-import '../../vouchers/screens/voucher_detail_screen.dart';
 import '../../vouchers/bloc/voucher_bloc.dart';
 import '../../vouchers/models/voucher_models.dart';
+import '../../vouchers/bloc/hubble_bloc.dart';
+import '../../main_layout/bloc/bottom_nav_bloc.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -145,10 +145,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               GestureDetector(
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const VoucherCatalogScreen()),
-                  );
+                  // Switch to the Hubble gift card tab (index 2)
+                  context.read<BottomNavBloc>().add(TabChanged(3));
+                  context.read<HubbleBloc>().add(LoadHubbleSDK());
                 },
                 child: const Text(
                   'Buy Gift Cards',
@@ -242,12 +241,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => VoucherDetailScreen(productId: brand.productId),
-          ),
-        );
+        // Tapping a gift card brand opens the Hubble store (tab 3)
+        context.read<BottomNavBloc>().add(TabChanged(3));
+        context.read<HubbleBloc>().add(LoadHubbleSDK());
       },
       child: Container(
         width: 280,

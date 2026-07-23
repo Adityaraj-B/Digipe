@@ -178,8 +178,10 @@ class LocationPermissionExplainerScreen extends StatelessWidget {
       // 2. Explainer for Always (Background)
       // In a real app, you might show a second contextual prompt here
       final alwaysStatus = await Permission.locationAlways.request();
+      if (!context.mounted) return;
       Navigator.pop(context, alwaysStatus.isGranted);
     } else {
+      if (!context.mounted) return;
       Navigator.pop(context, false);
     }
   }

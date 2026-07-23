@@ -53,6 +53,7 @@ app.*.map.json
 *.keystore
 *.p12
 *.pem
+/android/key.properties
 google-services.json
 ios/Runner/GoogleService-Info.plist
 

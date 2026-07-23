@@ -8,6 +8,7 @@ import '../bloc/bottom_nav_bloc.dart';
 import '../../home/screens/home_screen.dart';
 import '../../claims/screens/claims_screen.dart';
 import '../../profile/screens/profile_screen.dart';
+import '../../vouchers/screens/hubble_store_screen.dart';
 
 class MainLayoutScreen extends StatelessWidget {
   const MainLayoutScreen({super.key});
@@ -98,7 +99,8 @@ class _MainLayoutViewState extends State<_MainLayoutView> {
             ),
           ),
           extendBody: true,
-          bottomNavigationBar: _buildBottomNavigationBar(context, state.currentIndex),
+          bottomNavigationBar:
+              _buildBottomNavigationBar(context, state.currentIndex),
         );
       },
     );
@@ -119,15 +121,10 @@ class _MainLayoutViewState extends State<_MainLayoutView> {
       elevation: 0,
       centerTitle: false,
       titleSpacing: 24,
-      title: const Text(
-        'DIGIPE',
-        style: TextStyle(
-          fontFamily: 'Poppins',
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-          color: Colors.white,
-          letterSpacing: 0.5,
-        ),
+      title: Image.asset(
+        'assets/images/Logo White.png',
+        height: 32, // Adjust height as necessary
+        fit: BoxFit.contain,
       ),
       actions: [
         BlocBuilder<AuthBloc, AuthState>(
@@ -160,7 +157,9 @@ class _MainLayoutViewState extends State<_MainLayoutView> {
         radius: 16,
         backgroundColor: const Color(0xFF00BFA5),
         child: Text(
-          state.user.name.isNotEmpty ? state.user.name.substring(0, 1).toUpperCase() : 'U',
+          state.user.name.isNotEmpty
+              ? state.user.name.substring(0, 1).toUpperCase()
+              : 'U',
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w700,
@@ -169,7 +168,7 @@ class _MainLayoutViewState extends State<_MainLayoutView> {
         ),
       ),
       onPressed: () {
-        context.read<BottomNavBloc>().add(TabChanged(4));
+        context.read<BottomNavBloc>().add(TabChanged(5));
       },
     );
   }
@@ -186,16 +185,19 @@ class _MainLayoutViewState extends State<_MainLayoutView> {
               barrierDismissible: true,
               transitionDuration: const Duration(milliseconds: 360),
               reverseTransitionDuration: const Duration(milliseconds: 280),
-              pageBuilder: (context, _, __) => const SignupScreen(isModal: true),
-              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              pageBuilder: (context, _, __) =>
+                  const SignupScreen(isModal: true),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
                 final curved = CurvedAnimation(
                   parent: animation,
                   curve: Curves.easeOutCubic,
                   reverseCurve: Curves.easeInCubic,
                 );
                 return SlideTransition(
-                  position: Tween(begin: const Offset(0.0, 1.0), end: Offset.zero)
-                      .animate(curved),
+                  position:
+                      Tween(begin: const Offset(0.0, 1.0), end: Offset.zero)
+                          .animate(curved),
                   child: FadeTransition(opacity: curved, child: child),
                 );
               },
@@ -206,7 +208,8 @@ class _MainLayoutViewState extends State<_MainLayoutView> {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.1),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.0),
+            border: Border.all(
+                color: Colors.white.withValues(alpha: 0.2), width: 1.0),
             borderRadius: BorderRadius.circular(24),
           ),
           child: const Text(
@@ -232,8 +235,10 @@ class _MainLayoutViewState extends State<_MainLayoutView> {
       case 2:
         return const OrderTrackingScreen();
       case 3:
-        return const ClaimsScreen();
+        return const HubbleStoreScreen();
       case 4:
+        return const ClaimsScreen();
+      case 5:
         return const ProfileScreen();
       default:
         return const HomeScreen();
@@ -281,15 +286,28 @@ class _MainLayoutViewState extends State<_MainLayoutView> {
                       context.read<BottomNavBloc>().add(TabChanged(index));
                     },
                     items: const [
-                      _NavItemData(icon: Icons.home_outlined, activeIcon: Icons.home, label: 'Home'),
+                      _NavItemData(
+                          icon: Icons.home_outlined,
+                          activeIcon: Icons.home,
+                          label: 'Home'),
                       _NavItemData(
                         icon: Icons.description_outlined,
                         activeIcon: Icons.description,
                         label: 'Orders',
                       ),
-                      _NavItemData(icon: Icons.search_outlined, activeIcon: Icons.search, label: 'Track'),
-                      _NavItemData(icon: Icons.shield_outlined, activeIcon: Icons.shield, label: 'Claims'),
-                      // _NavItemData(icon: Icons.person_outline, activeIcon: Icons.person, label: 'Profile'),
+                      _NavItemData(
+                          icon: Icons.search_outlined,
+                          activeIcon: Icons.search,
+                          label: 'Track'),
+                      _NavItemData(
+                        icon: Icons.card_giftcard_outlined,
+                        activeIcon: Icons.card_giftcard,
+                        label: 'Hubble',
+                      ),
+                      _NavItemData(
+                          icon: Icons.shield_outlined,
+                          activeIcon: Icons.shield,
+                          label: 'Claims'),
                     ],
                   ),
                 ),
@@ -306,7 +324,8 @@ class _NavItemData {
   final IconData icon;
   final IconData activeIcon;
   final String label;
-  const _NavItemData({required this.icon, required this.activeIcon, required this.label});
+  const _NavItemData(
+      {required this.icon, required this.activeIcon, required this.label});
 }
 
 class _AnimatedNavBar extends StatelessWidget {
@@ -355,7 +374,8 @@ class _AnimatedNavBar extends StatelessWidget {
                           child: Icon(
                             isSelected ? item.activeIcon : item.icon,
                             size: 24,
-                            color: Color.lerp(_unselectedColor, _selectedColor, t),
+                            color:
+                                Color.lerp(_unselectedColor, _selectedColor, t),
                           ),
                         );
                       },
@@ -368,7 +388,8 @@ class _AnimatedNavBar extends StatelessWidget {
                         fontFamily: 'Poppins',
                         fontSize: 11,
                         height: 1.5,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight:
+                            isSelected ? FontWeight.w700 : FontWeight.w500,
                         color: isSelected ? _selectedColor : _unselectedColor,
                       ),
                       child: Text(item.label),

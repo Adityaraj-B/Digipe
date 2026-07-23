@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../auth/screens/bloc/auth_bloc.dart';
 import '../../../../core/constants/app_colors.dart' as app;
@@ -9,6 +10,22 @@ import '../../auth/screens/signup_screen.dart';
 import '../../main_layout/bloc/bottom_nav_bloc.dart';
 import '../../geofencing/services/geofence_manager.dart';
 import 'debug_settings_screen.dart';
+
+// ─── Legal URLs ───────────────────────────────────────────────────────────────
+const _kPrivacyPolicyUrl = 'https://digipe.com/about-digipe/privacy-policy/';
+const _kTermsUrl = 'https://digipe.com/about-digipe/terms-and-conditions/';
+const _kAccountDeletionUrl = 'https://digipe.com/about-digipe/account-deletion-policy/';
+
+Future<void> _launchUrl(BuildContext context, String url) async {
+  final uri = Uri.parse(url);
+  if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open the page. Please try again.')),
+      );
+    }
+  }
+}
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -120,6 +137,27 @@ class _AuthenticatedProfileView extends StatelessWidget {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const DebugSettingsScreen()));
             },
           ),
+        const SizedBox(height: 20),
+        const _SectionHeader(title: 'Legal'),
+        const SizedBox(height: 12),
+        _LegalLinkTile(
+          icon: Icons.shield_outlined,
+          title: 'Privacy Policy',
+          subtitle: 'How we collect, use and protect your data',
+          url: _kPrivacyPolicyUrl,
+        ),
+        _LegalLinkTile(
+          icon: Icons.gavel_outlined,
+          title: 'Terms & Conditions',
+          subtitle: 'Rules governing use of DIGIPe services',
+          url: _kTermsUrl,
+        ),
+        _LegalLinkTile(
+          icon: Icons.delete_outline_rounded,
+          title: 'Account Deletion Policy',
+          subtitle: 'How to request permanent account removal',
+          url: _kAccountDeletionUrl,
+        ),
         const SizedBox(height: 12),
         _ActionCard(
           icon: Icons.logout,
@@ -192,6 +230,27 @@ class _GuestProfileView extends StatelessWidget {
           title: 'Help & Support',
           subtitle: 'Get help before you sign in',
           onTap: () => _showSupportSheet(context),
+        ),
+        const SizedBox(height: 20),
+        const _SectionHeader(title: 'Legal'),
+        const SizedBox(height: 12),
+        _LegalLinkTile(
+          icon: Icons.shield_outlined,
+          title: 'Privacy Policy',
+          subtitle: 'How we collect, use and protect your data',
+          url: _kPrivacyPolicyUrl,
+        ),
+        _LegalLinkTile(
+          icon: Icons.gavel_outlined,
+          title: 'Terms & Conditions',
+          subtitle: 'Rules governing use of DIGIPe services',
+          url: _kTermsUrl,
+        ),
+        _LegalLinkTile(
+          icon: Icons.delete_outline_rounded,
+          title: 'Account Deletion Policy',
+          subtitle: 'How to request permanent account removal',
+          url: _kAccountDeletionUrl,
         ),
       ],
     );
@@ -911,50 +970,6 @@ class _ProfileSheet extends StatelessWidget {
   }
 }
 
-class _SheetInfoRow extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _SheetInfoRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: app.AppColors.inputFill,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: app.AppColors.textHint,
-                letterSpacing: 0.4,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: app.AppColors.textPrimary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _SheetBullet extends StatelessWidget {
   final String text;
@@ -1051,6 +1066,76 @@ class _GeofenceToggleCardState extends State<_GeofenceToggleCard> {
                 await manager.stopAll();
               }
             },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Legal Link Tile ─────────────────────────────────────────────────────────
+
+class _LegalLinkTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String url;
+
+  const _LegalLinkTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.url,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => _launchUrl(context, url),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: app.AppColors.inputBorder.withValues(alpha: 0.55)),
+            ),
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+              leading: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, size: 22, color: const Color(0xFF2563EB)),
+              ),
+              title: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: app.AppColors.textPrimary,
+                ),
+              ),
+              subtitle: Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 12,
+                  height: 1.35,
+                  color: app.AppColors.textSecondary,
+                ),
+              ),
+              trailing: const Icon(
+                Icons.open_in_new_rounded,
+                size: 16,
+                color: Color(0xFF2563EB),
+              ),
+            ),
           ),
         ),
       ),

@@ -1,13 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:screen_protector/screen_protector.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/services/notification_service.dart';
 import 'bloc/auth_bloc.dart';
 import '../../../../core/widgets/sun_illustration.dart';
 import '../../../../core/utils/auth_utils.dart';
 import '../../main_layout/screens/main_layout_screen.dart';
 import 'otp_entry_screen.dart';
+
+const _kTermsUrl = 'https://digipe.com/about-digipe/terms-and-conditions/';
+const _kPrivacyUrl = 'https://digipe.com/about-digipe/privacy-policy/';
+
+Future<void> _openUrl(BuildContext context, String url) async {
+  final uri = Uri.parse(url);
+  if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open page. Please try again.')),
+      );
+    }
+  }
+}
 
 class SignupScreen extends StatefulWidget {
   final bool isModal;
@@ -62,8 +76,8 @@ class _SignupScreenState extends State<SignupScreen> {
 
       context.read<AuthBloc>().add(RegisterRequested(fullName: name, phone: identifier, email: email));
     } else {
-      if (identifier.isEmpty) {
-        _showError('Please enter a mobile number or email');
+      if (identifier.length != 10 || !RegExp(r'^[0-9]+$').hasMatch(identifier)) {
+        _showError('Please enter a valid 10-digit mobile number');
         return;
       }
       context.read<AuthBloc>().add(SendOtpRequested(identifier));
@@ -114,8 +128,8 @@ class _SignupScreenState extends State<SignupScreen> {
           }
         } else if (state is AuthUserNotFound) {
           setState(() {
-            _isRegisterMode = true;
             _userNotFoundMessage = state.message;
+            _isRegisterMode = true;
           });
           _showError(state.message);
         } else if (state is AuthError) {
@@ -222,7 +236,7 @@ class _SignupScreenState extends State<SignupScreen> {
           Text(
             _isRegisterMode
                 ? 'Join India\'s most trusted solar insurance platform'
-                : 'Please enter your phone number or email to continue',
+                : 'Please enter your mobile number to continue',
             style: TextStyle(color: Colors.grey, fontSize: 13 * scale),
           ),
           SizedBox(height: 24 * scale),
@@ -239,15 +253,13 @@ class _SignupScreenState extends State<SignupScreen> {
             SizedBox(height: 16 * scale),
           ],
 
-          _label(_isRegisterMode ? 'Phone Number' : 'Phone Number or Email', scale),
+          _label('Phone Number', scale),
           _textField(
             controller: _phoneController,
             focusNode: _phoneFocus,
-            hint: _isRegisterMode ? 'Enter 10-digit number' : 'Enter mobile number or email',
-            keyboardType: _isRegisterMode ? TextInputType.phone : TextInputType.emailAddress,
-            inputFormatters: _isRegisterMode
-                ? [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)]
-                : [],
+            hint: _isRegisterMode ? 'Enter 10-digit number' : 'Enter 10-digit mobile number',
+            keyboardType: TextInputType.phone,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
             nextFocus: _isRegisterMode ? _emailFocus : null,
             readOnly: _isRegisterMode,
             scale: scale,
@@ -307,6 +319,55 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
             ),
           ),
+
+          // Terms & Privacy consent — shown on register mode
+          if (_isRegisterMode)
+            Padding(
+              padding: EdgeInsets.only(top: 4 * scale),
+              child: Center(
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  children: [
+                    Text(
+                      'By registering you agree to our ',
+                      style: TextStyle(fontSize: 11 * scale, color: Colors.grey[600]),
+                    ),
+                    GestureDetector(
+                      onTap: () => _openUrl(context, _kTermsUrl),
+                      child: Text(
+                        'Terms & Conditions',
+                        style: TextStyle(
+                          fontSize: 11 * scale,
+                          color: const Color(0xFF2563EB),
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      ' and ',
+                      style: TextStyle(fontSize: 11 * scale, color: Colors.grey[600]),
+                    ),
+                    GestureDetector(
+                      onTap: () => _openUrl(context, _kPrivacyUrl),
+                      child: Text(
+                        'Privacy Policy',
+                        style: TextStyle(
+                          fontSize: 11 * scale,
+                          color: const Color(0xFF2563EB),
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '.',
+                      style: TextStyle(fontSize: 11 * scale, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

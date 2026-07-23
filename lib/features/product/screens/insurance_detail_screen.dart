@@ -127,6 +127,7 @@ class _InsuranceDetailScreenState extends State<InsuranceDetailScreen> {
       await _storage.write(key: 'insurance_form_cache', value: jsonEncode(data));
 
       try {
+        if (!mounted) return;
         final authState = context.read<AuthBloc>().state;
         if (authState is Authenticated) {
           final current = authState.user;
@@ -897,7 +898,7 @@ class _InsuranceDetailScreenState extends State<InsuranceDetailScreen> {
                 context,
                 MaterialPageRoute(
                   builder: (_) => OrderTrackingScreen(
-                    orderId: application!['applicationNumber'] ?? application!['_id'] ?? application!['id'],
+                    orderId: application!['applicationNumber'] ?? application['_id'] ?? application['id'],
                   ),
                 ),
               );

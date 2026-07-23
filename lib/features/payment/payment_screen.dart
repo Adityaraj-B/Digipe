@@ -7,7 +7,7 @@ import 'dart:developer' as dev;
 
 import '../../../core/services/api_service.dart';
 import '../../../core/services/payment_service.dart';
-import 'service/verification_screen.dart';
+import 'service/verification_screen.dart'; // PaymentVerifyingScreen + real PaymentSuccessScreen
 
 class PaymentPreviewScreen extends StatefulWidget {
   final String product;
@@ -97,33 +97,43 @@ class _PaymentPreviewScreenState extends State<PaymentPreviewScreen> {
         planId: widget.planId,
         applicationId: widget.applicationId,
         onSuccess: () {
+          // Cashfree SDK confirmed payment — hand off to the real
+          // verification+polling screen which will navigate to
+          // PaymentSuccessScreen → OrderTrackingScreen on confirm.
           if (!mounted) return;
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (_) => PaymentSuccessScreen(
-                orderId: widget.orderData['_id'] ??
-                    widget.orderData['id'] ?? '',
+              builder: (_) => PaymentVerifyingScreen(
+                // paymentService already resolved & stored the internalOrderId;
+                // pass the pre-created internal id as a direct hint.
+                internalOrderId: widget.orderData['_id'] as String? ??
+                    widget.orderData['id'] as String?,
               ),
             ),
           );
         },
         onFailure: () {
           if (!mounted) return;
+          setState(() => _isProcessing = false);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Payment failed or cancelled. Please try again.'),
+              duration: Duration(seconds: 4),
             ),
           );
         },
       );
     } catch (e) {
       if (!mounted) return;
+      setState(() => _isProcessing = false);
+      dev.log('[Payment] Unexpected error in _initiatePayment: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Payment error: $e')),
+        const SnackBar(content: Text('Something went wrong. Please try again.')),
       );
     } finally {
-      if (mounted) setState(() => _isProcessing = false);
+      // Only reset spinner if still mounted and not already handled by callbacks
+      if (mounted && _isProcessing) setState(() => _isProcessing = false);
     }
   }
 

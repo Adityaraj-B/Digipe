@@ -26,6 +26,12 @@ class RegisterRequested extends AuthEvent {
   RegisterRequested({required this.fullName, required this.phone, required this.email});
 }
 
+// Fired when user wants to switch from phone login to email login
+class SwitchToEmailLoginRequested extends AuthEvent {
+  final String email;
+  SwitchToEmailLoginRequested(this.email);
+}
+
 class VerifyOtpRequested extends AuthEvent {
   final String code;
   VerifyOtpRequested(this.code);
@@ -39,6 +45,7 @@ class AuthSetDevToken extends AuthEvent {
 class AuthSkipRequested extends AuthEvent {}
 class AuthLogoutRequested extends AuthEvent {}
 class AuthTokenExpired extends AuthEvent {}
+class AuthOnboardingCompleted extends AuthEvent {}
 
 class AuthUpdateProfileRequested extends AuthEvent {
   final String? name;
@@ -71,10 +78,12 @@ class AwaitingOtp extends AuthState {
   final int attemptsLeft;
   final String? pendingName;
   final String? pendingEmail;
+  final String mode; // 'login' or 'register'
 
   AwaitingOtp({
     required this.verificationIdentifier,
     required this.phoneNumber,
+    required this.mode,
     this.attemptsLeft = 5,
     this.pendingName,
     this.pendingEmail,
@@ -88,13 +97,16 @@ class Authenticated extends AuthState {
 class AuthUserNotFound extends AuthState {
   final String phone;
   final String message;
-  AuthUserNotFound(this.phone, {this.message = "User not registered. Please register first."});
+  // If non-null, this user was email-registered; guide them to use this email
+  final String? registeredEmail;
+  AuthUserNotFound(this.phone, {this.message = "User not registered. Please register first.", this.registeredEmail});
 }
 class AuthError extends AuthState {
   final String message;
   AuthError(this.message);
 }
 class AuthSkipped extends AuthState {}
+class AuthOnboarding extends AuthState {}
 
 // --- BLoC ---
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
@@ -114,6 +126,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthLogoutRequested>(_onLogout);
     on<AuthTokenExpired>((event, emit) => emit(AuthIdle()));
     on<AuthUpdateProfileRequested>(_onUpdateProfile);
+    on<SwitchToEmailLoginRequested>(_onSwitchToEmailLogin);
+    on<AuthOnboardingCompleted>(_onOnboardingCompleted);
 
     _eventBusSub = bus.AuthEventBus.instance.stream.listen((busEvent) {
       if (busEvent == bus.AuthEvent.tokenExpired) {
@@ -123,6 +137,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   Future<void> _onAuthCheck(AuthCheckRequested event, Emitter<AuthState> emit) async {
+    // STEP 1: Onboarding gate — checked first, always.
+    final hasSeenOnboarding = await _storage.read(key: 'digipe_onboarding_seen');
+    if (hasSeenOnboarding != 'true') {
+      emit(AuthOnboarding());
+      return;
+    }
+
+    // STEP 2: Existing token/user check — only reached once onboarding
+    // has been confirmed as already completed.
     final token = await _storage.read(key: 'digipe_jwt');
     final userJson = await _storage.read(key: 'digipe_user');
 
@@ -140,23 +163,36 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
+  Future<void> _onOnboardingCompleted(AuthOnboardingCompleted event, Emitter<AuthState> emit) async {
+    // Write must be awaited and confirmed BEFORE emitting AuthIdle
+    await _storage.write(key: 'digipe_onboarding_seen', value: 'true');
+    // Once written, AuthIdle will trigger Signup screen on main layout switch. 
+    // Wait, what if the user actually has a valid token?
+    // According to instructions, emit AuthIdle. If they somehow had a token, 
+    // a subsequent AuthCheckRequested would log them in, but typically they don't.
+    // Let's just emit AuthIdle to trigger signup screen as instructed.
+    emit(AuthIdle());
+  }
+
   Future<void> _onSendOtp(SendOtpRequested event, Emitter<AuthState> emit) async {
     emit(OtpSending());
     try {
-      final isEmail = event.phone.contains('@');
-      final normalized = isEmail ? event.phone.trim() : AuthUtils.normalizePhoneNumber(event.phone);
+      // Always format with country code for the backend
+      final formattedPhone = AuthUtils.formatWithCountryCode(event.phone);
 
-      debugPrint('[AuthBloc] Requesting OTP for: $normalized');
-      final identifier = await _authRepository.requestOtp(normalized);
-
-      debugPrint('[AuthBloc] OTP Requested. Server Identifier: $identifier');
+      debugPrint('[AuthBloc] Requesting OTP for login: $formattedPhone');
+      final serverIdentifier = await _authRepository.requestOtp(formattedPhone);
 
       emit(AwaitingOtp(
-        verificationIdentifier: identifier,
-        phoneNumber: normalized,
+        verificationIdentifier: serverIdentifier.isNotEmpty ? serverIdentifier : formattedPhone,
+        phoneNumber: formattedPhone,
+        mode: 'login',
       ));
     } on UserNotFoundException catch (e) {
-      emit(AuthUserNotFound(event.phone, message: e.message));
+      emit(AuthUserNotFound(
+        event.phone,
+        message: e.message,
+      ));
     } catch (e) {
       emit(AuthError(e.toString()));
     }
@@ -165,72 +201,61 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _onRegister(RegisterRequested event, Emitter<AuthState> emit) async {
     emit(OtpSending());
     try {
-      final normalized = AuthUtils.normalizePhoneNumber(event.phone);
-      debugPrint('[AuthBloc] Registering user with phone: $normalized and email: ${event.email}');
+      final rawPhone = AuthUtils.rawTenDigits(event.phone);
+      final cleanEmail = event.email.trim().toLowerCase();
+      final formattedPhone = AuthUtils.formatWithCountryCode(rawPhone);
+
+      debugPrint('[AuthBloc] Registering user phone: $rawPhone, email: $cleanEmail');
 
       await _authRepository.register(
-        fullName: event.fullName,
-        phone: normalized,
-        email: event.email,
+        fullName: event.fullName.trim(),
+        phone: rawPhone,
+        email: cleanEmail,
       );
 
-      // Force the verification identifier to be the email for registration
-      final verifyId = event.email;
-
-      debugPrint('[AuthBloc] Registration success. Verifying against email: $verifyId');
+      // Backend now sends OTP to the phone number after registration.
+      // Use phone as verificationIdentifier for OTP verification.
+      debugPrint('[AuthBloc] Registration successful. OTP sent to phone: $formattedPhone');
 
       emit(AwaitingOtp(
-        verificationIdentifier: verifyId,
-        phoneNumber: normalized,
-        pendingName: event.fullName,
-        pendingEmail: event.email,
+        verificationIdentifier: formattedPhone,
+        phoneNumber: formattedPhone,
+        mode: 'register',
+        pendingName: event.fullName.trim(),
+        pendingEmail: cleanEmail,
       ));
     } on DioException catch (e) {
       final status = e.response?.statusCode;
       final serverData = e.response?.data;
-      debugPrint('[AuthBloc] Registration failure: $status, body: $serverData');
-
       String? serverMsg;
       if (serverData is Map) {
         serverMsg = serverData['message']?.toString();
       }
       if (status == 409) {
-        emit(AuthError(serverMsg ?? 'This number is already registered. Please log in instead.'));
+        emit(AuthError(serverMsg ?? 'Already registered. Please login instead.'));
       } else {
-        emit(AuthError(serverMsg ?? 'Registration failed. Please try again.'));
+        emit(AuthError(serverMsg ?? 'Failed to register.'));
       }
     } catch (e) {
       emit(AuthError('Registration failed: ${e.toString()}'));
     }
   }
 
-  Future<void> _onVerifyOtp(
-      VerifyOtpRequested event, Emitter<AuthState> emit) async {
+  Future<void> _onVerifyOtp(VerifyOtpRequested event, Emitter<AuthState> emit) async {
     if (state is! AwaitingOtp) return;
     final currentState = state as AwaitingOtp;
 
     emit(Verifying());
     try {
-      String? phoneToSend;
-      String? emailToSend;
+      // Backend now always expects mobileNumber for verification
+      final phoneToSend = AuthUtils.formatWithCountryCode(currentState.phoneNumber);
 
-      // Dynamically assign phone and email to mirror website behavior
-      if (currentState.phoneNumber.contains('@')) {
-        // User logged in using an email address
-        emailToSend = currentState.phoneNumber;
-      } else {
-        // User is registering, or logging in with a phone number
-        phoneToSend = currentState.phoneNumber;
-        emailToSend = currentState.pendingEmail;
-      }
+      debugPrint('[AuthBloc] Verifying OTP payload -> mobileNumber: $phoneToSend, code: ${event.code}');
 
-      debugPrint('[AuthBloc] Verifying OTP. Phone: $phoneToSend | Email: $emailToSend | Code: ${event.code}');
-
-      // Send both to backend so it perfectly matches the website flow
       final result = await _authRepository.login(
         code: event.code,
         phone: phoneToSend,
-        email: emailToSend,
+        email: currentState.pendingEmail, // Pass email for user creation in backend
       );
 
       debugPrint('[AuthBloc] Verification successful');
@@ -257,6 +282,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         emit(AwaitingOtp(
           verificationIdentifier: currentState.verificationIdentifier,
           phoneNumber: currentState.phoneNumber,
+          mode: currentState.mode,
           attemptsLeft: newAttempts,
           pendingName: currentState.pendingName,
           pendingEmail: currentState.pendingEmail,
@@ -282,8 +308,30 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     await _storage.delete(key: 'digipe_user');
     await _storage.delete(key: 'digipe_cached_orders');
     await _storage.delete(key: 'digipe_cached_policies');
+    // Note: phone→email mappings are intentionally kept across logouts
+    // so the "use email" guidance still shows on re-login attempts.
 
     emit(AuthIdle());
+  }
+
+  // When user has a phone→email account (email-registered via app),
+  // let them tap "Login with email" to pre-fill the email and send OTP.
+  Future<void> _onSwitchToEmailLogin(SwitchToEmailLoginRequested event, Emitter<AuthState> emit) async {
+    emit(OtpSending());
+    try {
+      final cleanEmail = event.email.trim().toLowerCase();
+      debugPrint('[AuthBloc] Switching to email login: $cleanEmail');
+      final serverIdentifier = await _authRepository.requestOtp(cleanEmail);
+      emit(AwaitingOtp(
+        verificationIdentifier: serverIdentifier.isNotEmpty ? serverIdentifier : cleanEmail,
+        phoneNumber: cleanEmail, // phoneNumber field used for display/resend
+        mode: 'login',
+      ));
+    } on UserNotFoundException catch (e) {
+      emit(AuthError(e.message));
+    } catch (e) {
+      emit(AuthError(e.toString()));
+    }
   }
 
   Future<void> _onUpdateProfile(AuthUpdateProfileRequested event, Emitter<AuthState> emit) async {

@@ -33,6 +33,7 @@ class _GeofenceSimulationScreenState extends State<GeofenceSimulationScreen> {
       final geofences = await tl.Tracelet.getGeofences();
       setState(() => _registeredGeofences = geofences);
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error loading geofences: $e')),
       );
@@ -156,6 +157,7 @@ class _GeofenceSimulationScreenState extends State<GeofenceSimulationScreen> {
   Future<void> _simulateEnter(String id, String name) async {
     // Manually call the event handler to test logic
     await widget.eventHandler.onGeofenceEnter(id, 0.0, 0.0);
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Simulated ENTER for $name')),
     );
@@ -163,6 +165,7 @@ class _GeofenceSimulationScreenState extends State<GeofenceSimulationScreen> {
 
   Future<void> _simulateExit(String id) async {
     await widget.eventHandler.onGeofenceExit(id, 0.0, 0.0);
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Simulated EXIT for $id')),
     );

@@ -46,6 +46,8 @@ class _PaymentVerifyingScreenState extends State<PaymentVerifyingScreen>
       _resolvedId = await resolutionService.resolveInternalOrderId(widget.cashfreeOrderId!);
     }
 
+    if (!mounted) return;
+
     if (_resolvedId == null) {
       setState(() => _step = _VerifyStep.failed);
       return;
@@ -56,7 +58,15 @@ class _PaymentVerifyingScreenState extends State<PaymentVerifyingScreen>
   }
 
   void _startPolling() {
+    int attempts = 0;
+    const maxAttempts = 30; // 30 × 3s = 90s max
     _pollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      attempts++;
+      if (attempts > maxAttempts) {
+        timer.cancel();
+        if (mounted) setState(() => _step = _VerifyStep.failed);
+        return;
+      }
       try {
         final status = await context.read<ApiService>().getPaymentStatus(_resolvedId!);
         final normalized = status.toUpperCase();
@@ -66,10 +76,10 @@ class _PaymentVerifyingScreenState extends State<PaymentVerifyingScreen>
           _onSuccess();
         } else if (normalized == 'FAILED' || normalized == 'CANCELLED' || normalized == 'EXPIRED') {
           timer.cancel();
-          setState(() => _step = _VerifyStep.failed);
+          if (mounted) setState(() => _step = _VerifyStep.failed);
         }
       } catch (_) {
-        // Continue polling
+        // Continue polling on transient network errors
       }
     });
   }
@@ -95,10 +105,10 @@ class _PaymentVerifyingScreenState extends State<PaymentVerifyingScreen>
 
   String get _statusText => switch (_step) {
     _VerifyStep.resolving => 'Resolving your order details...',
-    _VerifyStep.verifying => 'Verifying your payment...',
-    _VerifyStep.fetchingPolicy => 'Payment verified! Issuing your policy...',
-    _VerifyStep.done => 'All done!',
-    _VerifyStep.failed => 'Payment verification failed or timed out.',
+    _VerifyStep.verifying => 'Verifying your payment with Cashfree...',
+    _VerifyStep.fetchingPolicy => 'Payment confirmed! Issuing your policy...',
+    _VerifyStep.done => 'All done! Redirecting...',
+    _VerifyStep.failed => 'Payment could not be confirmed.\nPlease check My Policies or contact support.',
   };
 
   @override
@@ -111,7 +121,9 @@ class _PaymentVerifyingScreenState extends State<PaymentVerifyingScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: _step == _VerifyStep.failed,
+      child: Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       body: SafeArea(
         child: Column(
@@ -131,25 +143,47 @@ class _PaymentVerifyingScreenState extends State<PaymentVerifyingScreen>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    RotationTransition(
-                      turns: _rotateCtrl,
-                      child: Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFF1A1A1A), width: 2),
+                    if (_step == _VerifyStep.failed) ...[
+                      const Icon(Icons.error_outline_rounded, size: 64, color: Color(0xFFEF4444)),
+                      const SizedBox(height: 24),
+                      const Text('Verification Failed', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A))),
+                      const SizedBox(height: 10),
+                      Text(_statusText, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, color: Color(0xFF888888), height: 1.5)),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1A1A1A),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: const Text('Go Back', style: TextStyle(fontWeight: FontWeight.w600)),
                         ),
-                        child: const Icon(Icons.schedule_rounded, size: 32, color: Color(0xFF1A1A1A)),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    const Text('Order Verification', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A))),
-                    const SizedBox(height: 10),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      child: Text(_statusText, key: ValueKey(_step), textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, color: Color(0xFF888888), height: 1.5)),
-                    ),
+                    ] else ...[
+                      RotationTransition(
+                        turns: _rotateCtrl,
+                        child: Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: const Color(0xFF1A1A1A), width: 2),
+                          ),
+                          child: const Icon(Icons.schedule_rounded, size: 32, color: Color(0xFF1A1A1A)),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text('Order Verification', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A))),
+                      const SizedBox(height: 10),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        child: Text(_statusText, key: ValueKey(_step), textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, color: Color(0xFF888888), height: 1.5)),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -161,6 +195,7 @@ class _PaymentVerifyingScreenState extends State<PaymentVerifyingScreen>
             ),
           ],
         ),
+      ),
       ),
     );
   }
