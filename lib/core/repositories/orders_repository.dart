@@ -1,12 +1,12 @@
 import 'dart:async';
-import '../../features/orders/bloc/orders_bloc.dart';
+import '../models/api_models.dart';
 
 class OrdersRepository {
   // Simulate database/API state for the session
   final List<OrderSummary> _mockOrders = [
     OrderSummary(
       orderId: 'POL-3B668B7A',
-      product: 'amit yadssv',
+      product: 'Solar Insurance Plan',
       amount: 'Rs. 899',
       date: 'Jun 12, 2026',
       status: 'Active',

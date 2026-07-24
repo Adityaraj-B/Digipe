@@ -38,8 +38,27 @@ app.*.symbols
 
 # Obfuscation related
 app.*.map.json
+/build/debug-info/
 
 # Android Studio will place build artifacts here
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Security & Credentials
+.env
+.env*
+!.env.example
+*.jks
+*.keystore
+*.p12
+*.pem
+/android/key.properties
+google-services.json
+ios/Runner/GoogleService-Info.plist
+
+# Local properties
+/android/local.properties
+/ios/Flutter/Generated.xcconfig
+/ios/Flutter/flutter_export_environment.sh
+/ios/Flutter/ephemeral/

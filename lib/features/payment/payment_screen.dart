@@ -1,23 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:screen_protector/screen_protector.dart';
+import 'package:local_auth/local_auth.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'dart:developer' as dev;
+
+import '../../../core/services/api_service.dart';
+import '../../../core/services/payment_service.dart';
+import 'service/verification_screen.dart'; // PaymentVerifyingScreen + real PaymentSuccessScreen
 
 class PaymentPreviewScreen extends StatefulWidget {
   final String product;
   final double basePremium;
-  final double gstRate;
-  final double processingFee;
   final int years;
+  final String planId;
   final String applicationId;
-  final void Function(double finalAmount)? onPayNow;
+  final Map<String, dynamic> orderData;
 
   const PaymentPreviewScreen({
     super.key,
     required this.product,
     required this.basePremium,
-    this.gstRate = 0.18,
-    this.processingFee = 50,
-    this.years = 1,
+    required this.years,
+    required this.planId,
     required this.applicationId,
-    this.onPayNow,
+    required this.orderData,
   });
 
   @override
@@ -26,96 +33,123 @@ class PaymentPreviewScreen extends StatefulWidget {
 
 class _PaymentPreviewScreenState extends State<PaymentPreviewScreen> {
   final _couponCtrl = TextEditingController();
-  double _discount = 0;
-  bool _couponApplied = false;
-  bool _couponError = false;
-  bool _applying = false;
 
-  static const _validCoupon = 'DIGIPE10';
-  static const _discountPct = 0.10;
+  late double _subtotal;
+  late double _taxAmount;
+  late double _discountAmount;
+  late double _totalAmount;
 
-  double get _gstAmount => widget.basePremium * widget.gstRate;
-  double get _subtotal => widget.basePremium + _gstAmount + widget.processingFee;
-  double get _total => _subtotal - _discount;
+  bool _isProcessing = false;
 
-  Future<void> _applyCoupon() async {
-    final code = _couponCtrl.text.trim().toUpperCase();
-    if (code.isEmpty) return;
-    setState(() {
-      _applying = true;
-      _couponError = false;
-    });
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (!mounted) return;
-    if (code == _validCoupon) {
-      setState(() {
-        _discount = _subtotal * _discountPct;
-        _couponApplied = true;
-        _couponError = false;
-        _applying = false;
-      });
-    } else {
-      setState(() {
-        _discount = 0;
-        _couponApplied = false;
-        _couponError = true;
-        _applying = false;
-      });
-    }
-  }
+  @override
+  void initState() {
+    super.initState();
+    ScreenProtector.preventScreenshotOn();
 
-  void _removeCoupon() {
-    setState(() {
-      _couponCtrl.clear();
-      _couponApplied = false;
-      _couponError = false;
-      _discount = 0;
-    });
+    _subtotal = (widget.orderData['subtotal'] ?? widget.basePremium).toDouble();
+    _taxAmount = (widget.orderData['taxAmount'] ?? 0).toDouble();
+    _discountAmount = (widget.orderData['discountAmount'] ?? 0).toDouble();
+    _totalAmount = (widget.orderData['totalAmount'] ?? (_subtotal + _taxAmount)).toDouble();
   }
 
   @override
   void dispose() {
+    ScreenProtector.preventScreenshotOff();
     _couponCtrl.dispose();
     super.dispose();
   }
 
+  Future<bool> _authenticateForPayment() async {
+    final auth = LocalAuthentication();
+    try {
+      final canAuth = await auth.canCheckBiometrics || await auth.isDeviceSupported();
+      if (!canAuth) return true;
+
+      return await auth.authenticate(
+        localizedReason: 'Confirm identity to pay ₹${_totalAmount.toStringAsFixed(0)}',
+        options: const AuthenticationOptions(
+          biometricOnly: false,
+          stickyAuth: true,
+        ),
+      );
+    } catch (e) {
+      dev.log('Biometric error: $e');
+      return true;
+    }
+  }
+
+  Future<void> _initiatePayment() async {
+    final confirmed = await _authenticateForPayment();
+    if (!confirmed) return;
+
+    if (!mounted) return;
+    setState(() => _isProcessing = true);
+
+    try {
+      final apiService = context.read<ApiService>();
+      final paymentService = PaymentService(
+        apiService,
+        const FlutterSecureStorage(),
+      );
+
+      await paymentService.startPayment(
+        context: context,
+        planId: widget.planId,
+        applicationId: widget.applicationId,
+        onSuccess: () {
+          // Cashfree SDK confirmed payment — hand off to the real
+          // verification+polling screen which will navigate to
+          // PaymentSuccessScreen → OrderTrackingScreen on confirm.
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PaymentVerifyingScreen(
+                // paymentService already resolved & stored the internalOrderId;
+                // pass the pre-created internal id as a direct hint.
+                internalOrderId: widget.orderData['_id'] as String? ??
+                    widget.orderData['id'] as String?,
+              ),
+            ),
+          );
+        },
+        onFailure: () {
+          if (!mounted) return;
+          setState(() => _isProcessing = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Payment failed or cancelled. Please try again.'),
+              duration: Duration(seconds: 4),
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      dev.log('[Payment] Unexpected error in _initiatePayment: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Something went wrong. Please try again.')),
+      );
+    } finally {
+      // Only reset spinner if still mounted and not already handled by callbacks
+      if (mounted && _isProcessing) setState(() => _isProcessing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF8F9FA),
+        backgroundColor: Theme.of(context).cardColor,
         elevation: 0,
-        scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          color: const Color(0xFF1A1A1A),
-          onPressed: () => Navigator.of(context).pop(),
+            icon: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Theme.of(context).colorScheme.onSurface),
+            onPressed: () => Navigator.of(context).pop()
         ),
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Payment Preview',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1A1A1A),
-                letterSpacing: 0.5,
-              ),
-            ),
-            SizedBox(height: 2),
-            Text(
-              'Review your order and proceed to payment',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                color: Color(0xFF8E8E93),
-              ),
-            ),
-          ],
-        ),
-        titleSpacing: 0,
+        title: Text('Payment Preview', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
       ),
       body: Column(
         children: [
@@ -129,353 +163,64 @@ class _PaymentPreviewScreenState extends State<PaymentPreviewScreen> {
                     children: [
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: const Color(0xFFE5E5EA), width: 1),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.02),
-                              blurRadius: 20,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
+                            color: Theme.of(context).cardColor,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E5EA))
                         ),
                         padding: const EdgeInsets.all(20),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            Row(children: [
+                              Icon(Icons.credit_card_outlined, size: 22, color: Theme.of(context).colorScheme.onSurface),
+                              const SizedBox(width: 12),
+                              Expanded(child: Text('Payment Summary', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface))),
+                            ]),
+                            const Divider(height: 48),
+                            _PriceRow(label: 'Product', valueText: widget.product, isBold: true),
+                            _PriceRow(label: 'Base Premium', value: _subtotal),
+                            _PriceRow(label: 'GST', value: _taxAmount),
+                            if (_discountAmount > 0) _PriceRow(label: 'Discount', value: -_discountAmount, isDiscount: true),
+                            const Divider(height: 48),
                             Row(
-                              children: [
-                                Container(
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF5F5F5),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: const Color(0xFFE5E5EA)),
-                                  ),
-                                  child: const Icon(Icons.credit_card_outlined,
-                                      size: 22, color: Color(0xFF1A1A1A)),
-                                ),
-                                const SizedBox(width: 12),
-                                const Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Payment Summary',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: Color(0xFF1A1A1A),
-                                        ),
-                                      ),
-                                      SizedBox(height: 2),
-                                      Text(
-                                        'Transparent price breakup',
-                                        style: TextStyle(
-                                            fontSize: 12, color: Color(0xFF8E8E93)),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF5F5F5),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(color: const Color(0xFFE5E5EA)),
-                                  ),
-                                  child: const Text(
-                                    'Secure',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF1A1A1A),
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 24),
-                              child: Divider(height: 1, color: Color(0xFFF2F2F7)),
-                            ),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('Selected Plan',
-                                    style: TextStyle(
-                                        fontSize: 14, color: Color(0xFF8E8E93))),
-                                Text(
-                                  widget.product,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF1A1A1A),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 20),
-                            _PriceRow(
-                              label: 'Base Premium (${widget.years} Year)',
-                              value: widget.basePremium,
-                            ),
-                            const SizedBox(height: 16),
-                            _PriceRow(
-                              label: 'GST (${(widget.gstRate * 100).toStringAsFixed(0)}%)',
-                              value: _gstAmount,
-                            ),
-                            const SizedBox(height: 16),
-                            _PriceRow(
-                              label: 'Processing Fee',
-                              value: widget.processingFee,
-                            ),
-                            if (_couponApplied) ...[
-                              const SizedBox(height: 16),
-                              _PriceRow(
-                                label: 'Coupon Discount ($_validCoupon)',
-                                value: -_discount,
-                                isDiscount: true,
-                              ),
-                            ],
-                            const SizedBox(height: 32),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Container(
-                                    height: 52,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF8F9FA),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: _couponError
-                                            ? const Color(0xFF1A1A1A)
-                                            : _couponApplied
-                                            ? const Color(0xFF1A1A1A)
-                                            : const Color(0xFFE5E5EA),
-                                        width: _couponApplied || _couponError ? 1.5 : 1,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const SizedBox(width: 16),
-                                        Icon(
-                                          _couponApplied
-                                              ? Icons.check_circle_rounded
-                                              : Icons.local_offer_outlined,
-                                          size: 20,
-                                          color: const Color(0xFF1A1A1A),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: TextField(
-                                            controller: _couponCtrl,
-                                            enabled: !_couponApplied,
-                                            textCapitalization:
-                                            TextCapitalization.characters,
-                                            style: const TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                                color: Color(0xFF1A1A1A)),
-                                            decoration: InputDecoration(
-                                              hintText: _couponApplied
-                                                  ? '$_validCoupon applied'
-                                                  : 'Enter Coupon (Try DIGIPE10)',
-                                              hintStyle: const TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w400,
-                                                color: Color(0xFF8E8E93),
-                                              ),
-                                              border: InputBorder.none,
-                                              isDense: true,
-                                            ),
-                                            onSubmitted: (_) => _applyCoupon(),
-                                          ),
-                                        ),
-                                        if (_couponApplied)
-                                          GestureDetector(
-                                            onTap: _removeCoupon,
-                                            child: const Padding(
-                                              padding: EdgeInsets.only(right: 16),
-                                              child: Icon(Icons.close_rounded,
-                                                  size: 20, color: Color(0xFF8E8E93)),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                GestureDetector(
-                                  onTap: _couponApplied ? null : _applyCoupon,
-                                  child: Container(
-                                    height: 52,
-                                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                                    decoration: BoxDecoration(
-                                      color: _couponApplied
-                                          ? const Color(0xFFF5F5F5)
-                                          : const Color(0xFF1A1A1A),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: _couponApplied
-                                          ? Border.all(color: const Color(0xFFE5E5EA))
-                                          : null,
-                                    ),
-                                    child: Center(
-                                      child: _applying
-                                          ? const SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                            color: Colors.white, strokeWidth: 2),
-                                      )
-                                          : Text(
-                                        _couponApplied ? 'Applied' : 'Apply',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: _couponApplied
-                                              ? const Color(0xFF8E8E93)
-                                              : Colors.white,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (_couponError) ...[
-                              const SizedBox(height: 8),
-                              const Padding(
-                                padding: EdgeInsets.only(left: 4),
-                                child: Text(
-                                  'Invalid coupon code. Please try again.',
-                                  style: TextStyle(
-                                      fontSize: 12, color: Color(0xFF1A1A1A), fontWeight: FontWeight.w500),
-                                ),
-                              ),
-                            ],
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 24),
-                              child: _DashedDivider(),
-                            ),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                const Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Total Payable',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                        color: Color(0xFF1A1A1A),
-                                      ),
-                                    ),
-                                    SizedBox(height: 4),
-                                    Text(
-                                      'All taxes included',
-                                      style: TextStyle(
-                                          fontSize: 12, color: Color(0xFF8E8E93)),
-                                    ),
-                                  ],
-                                ),
-                                Text(
-                                  'Rs. ${_total.toStringAsFixed(2)}',
-                                  style: const TextStyle(
-                                    fontSize: 26,
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF1A1A1A),
-                                    letterSpacing: -0.5,
-                                  ),
-                                ),
-                              ],
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Total Payable', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface)),
+                                  Text('Rs. ${_totalAmount.toStringAsFixed(2)}', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.onSurface)),
+                                ]
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.lock_outline_rounded,
-                              size: 14, color: Color(0xFF8E8E93)),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Payments are processed securely via SSL encryption.',
-                            style: TextStyle(
-                                fontSize: 12, color: const Color(0xFF8E8E93).withValues(alpha: 0.8)),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 32),
                     ],
                   ),
                 ),
               ),
             ),
           ),
-
           Container(
-            padding: EdgeInsets.fromLTRB(
-                20, 16, 20, MediaQuery.of(context).padding.bottom + 16),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: const Border(top: BorderSide(color: Color(0xFFE5E5EA))),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, -5),
-                ),
-              ],
+                color: Theme.of(context).cardColor,
+                border: Border(top: BorderSide(color: Theme.of(context).dividerColor))
             ),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: Column(
-                  children: [
-                    GestureDetector(
-                      onTap: () => widget.onPayNow?.call(_total),
-                      child: Container(
-                        width: double.infinity,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1A1A1A),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.shield_outlined,
-                                size: 20, color: Colors.white),
-                            SizedBox(width: 10),
-                            Text(
-                              'Pay Now',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+            child: SafeArea(
+              top: false,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: ElevatedButton(
+                    onPressed: _isProcessing ? null : _initiatePayment,
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: isDark ? Colors.white : Colors.black,
+                        foregroundColor: isDark ? Colors.black : Colors.white,
+                        minimumSize: const Size(double.infinity, 56),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'By clicking "Pay Now", you agree to the terms and conditions.',
-                      style: TextStyle(fontSize: 11, color: const Color(0xFF8E8E93).withValues(alpha: 0.8)),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+                    child: _isProcessing
+                        ? CircularProgressIndicator(color: isDark ? Colors.black : Colors.white)
+                        : const Text('Pay Now', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  ),
                 ),
               ),
             ),
@@ -488,64 +233,40 @@ class _PaymentPreviewScreenState extends State<PaymentPreviewScreen> {
 
 class _PriceRow extends StatelessWidget {
   final String label;
-  final double value;
+  final double? value;
+  final String? valueText;
+  final bool isBold;
   final bool isDiscount;
 
-  const _PriceRow(
-      {required this.label, required this.value, this.isDiscount = false});
+  const _PriceRow({
+    required this.label,
+    this.value,
+    this.valueText,
+    this.isBold = false,
+    this.isDiscount = false
+  });
 
   @override
   Widget build(BuildContext context) {
-    final formatted = isDiscount
-        ? '- Rs. ${value.abs().toStringAsFixed(2)}'
-        : 'Rs. ${value.toStringAsFixed(2)}';
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Color(0xFF48484A),
-              fontWeight: FontWeight.w400,
-            )),
-        Text(
-          formatted,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: isDiscount ? FontWeight.w600 : FontWeight.w500,
-            color: const Color(0xFF1A1A1A),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DashedDivider extends StatelessWidget {
-  const _DashedDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final boxWidth = constraints.constrainWidth();
-        const dashWidth = 6.0;
-        const dashHeight = 1.0;
-        final dashCount = (boxWidth / (2 * dashWidth)).floor();
-        return Flex(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          direction: Axis.horizontal,
-          children: List.generate(dashCount, (_) {
-            return const SizedBox(
-              width: dashWidth,
-              height: dashHeight,
-              child: DecoratedBox(
-                decoration: BoxDecoration(color: Color(0xFFE5E5EA)),
+          children: [
+            Text(label, style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
+            Flexible(
+              child: Text(
+                  valueText ?? 'Rs. ${value?.toStringAsFixed(2)}',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
+                      color: isDiscount ? Colors.green : Theme.of(context).colorScheme.onSurface
+                  )
               ),
-            );
-          }),
-        );
-      },
+            ),
+          ]
+      ),
     );
   }
 }
