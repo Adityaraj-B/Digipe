@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import '../../../core/widgets/Cards.dart';
 import '../bloc/hubble_bloc.dart';
 import '../services/hubble_sdk_service.dart';
 
@@ -23,20 +24,20 @@ class _HubbleHistoryScreenState extends State<HubbleHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0D0D),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Column(
         children: [
           _buildHeader(context),
           Expanded(
             child: BlocBuilder<HubbleBloc, HubbleState>(
               builder: (context, state) {
-                if (state is HubbleHistoryLoading) return _buildLoader();
+                if (state is HubbleHistoryLoading) return _buildLoader(context);
                 if (state is HubbleHistoryError) return _buildError(state.message);
                 if (state is HubbleHistoryLoaded) {
-                  if (state.transactions.isEmpty) return _buildEmpty();
+                  if (state.transactions.isEmpty) return _buildEmpty(context);
                   return _buildList(state.transactions);
                 }
-                return _buildLoader();
+                return _buildLoader(context);
               },
             ),
           ),
@@ -50,14 +51,17 @@ class _HubbleHistoryScreenState extends State<HubbleHistoryScreen> {
   // ─────────────────────────────────────────
 
   Widget _buildHeader(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.6),
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.6)
+                : Colors.white.withValues(alpha: 0.8),
             border: Border(
-              bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+              bottom: BorderSide(color: AppColors.adaptiveBorder(context)),
             ),
           ),
           child: SafeArea(
@@ -68,10 +72,14 @@ class _HubbleHistoryScreenState extends State<HubbleHistoryScreen> {
                 children: [
                   const SizedBox(width: 8),
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+                    icon: Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: AppColors.adaptiveInk(context),
+                      size: 20,
+                    ),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'My Transactions',
                       textAlign: TextAlign.center,
@@ -79,13 +87,17 @@ class _HubbleHistoryScreenState extends State<HubbleHistoryScreen> {
                         fontFamily: 'Poppins',
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
-                        color: Colors.white,
+                        color: AppColors.adaptiveInk(context),
                         letterSpacing: -0.3,
                       ),
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.refresh_rounded, color: Colors.white.withValues(alpha: 0.7), size: 22),
+                    icon: Icon(
+                      Icons.refresh_rounded,
+                      color: AppColors.adaptiveBodyGrey(context),
+                      size: 22,
+                    ),
                     onPressed: () => context.read<HubbleBloc>().add(LoadHubbleHistory()),
                   ),
                   const SizedBox(width: 4),
@@ -112,30 +124,38 @@ class _HubbleHistoryScreenState extends State<HubbleHistoryScreen> {
     );
   }
 
-  Widget _buildLoader() {
-    return const Center(
+  Widget _buildLoader(BuildContext context) {
+    return Center(
       child: SizedBox(
         width: 26,
         height: 26,
-        child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFFF5A623)),
+        child: CircularProgressIndicator(
+          strokeWidth: 2.5,
+          color: AppColors.adaptiveInk(context),
+        ),
       ),
     );
   }
 
   Widget _buildError(String message) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 40),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline_rounded, size: 44, color: Colors.redAccent.withValues(alpha: 0.8)),
+            Icon(
+              Icons.error_outline_rounded,
+              size: 44,
+              color: Colors.redAccent.withValues(alpha: 0.8),
+            ),
             const SizedBox(height: 16),
             Text(
               message,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
+                color: AppColors.adaptiveBodyGrey(context),
                 fontFamily: 'Poppins',
                 fontSize: 14,
               ),
@@ -143,9 +163,11 @@ class _HubbleHistoryScreenState extends State<HubbleHistoryScreen> {
             const SizedBox(height: 24),
             FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFF5A623),
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                backgroundColor: AppColors.adaptiveInk(context),
+                foregroundColor: isDark ? Colors.black : Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: () => context.read<HubbleBloc>().add(LoadHubbleHistory()),
               child: const Text('Retry', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -156,7 +178,7 @@ class _HubbleHistoryScreenState extends State<HubbleHistoryScreen> {
     );
   }
 
-  Widget _buildEmpty() {
+  Widget _buildEmpty(BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -164,16 +186,20 @@ class _HubbleHistoryScreenState extends State<HubbleHistoryScreen> {
           Container(
             padding: const EdgeInsets.all(22),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
+              color: AppColors.adaptiveSurface(context),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.receipt_long_outlined, size: 40, color: Colors.white.withValues(alpha: 0.3)),
+            child: Icon(
+              Icons.receipt_long_outlined,
+              size: 40,
+              color: AppColors.adaptiveBodyGrey(context),
+            ),
           ),
           const SizedBox(height: 18),
           Text(
             'No transactions yet',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.6),
+              color: AppColors.adaptiveInk(context),
               fontFamily: 'Poppins',
               fontWeight: FontWeight.w600,
               fontSize: 16,
@@ -183,7 +209,7 @@ class _HubbleHistoryScreenState extends State<HubbleHistoryScreen> {
           Text(
             'Your gift card purchases will appear here.',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.35),
+              color: AppColors.adaptiveBodyGrey(context),
               fontFamily: 'Poppins',
               fontSize: 13,
             ),
@@ -204,15 +230,15 @@ class _TransactionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = _statusColor(transaction.status);
+    final statusColor = _statusColor(context, transaction.status);
     final dateStr = DateFormat('dd MMM yyyy, h:mm a').format(transaction.createdAt.toLocal());
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: AppColors.adaptiveSurface(context),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: AppColors.adaptiveBorder(context)),
       ),
       child: Row(
         children: [
@@ -235,8 +261,8 @@ class _TransactionCard extends StatelessWidget {
               children: [
                 Text(
                   transaction.brand ?? transaction.displayLabel,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppColors.adaptiveInk(context),
                     fontFamily: 'Poppins',
                     fontWeight: FontWeight.w700,
                     fontSize: 14.5,
@@ -249,7 +275,7 @@ class _TransactionCard extends StatelessWidget {
                 Text(
                   transaction.displayLabel,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.45),
+                    color: AppColors.adaptiveBodyGrey(context),
                     fontFamily: 'Poppins',
                     fontSize: 11.5,
                     fontWeight: FontWeight.w500,
@@ -259,7 +285,7 @@ class _TransactionCard extends StatelessWidget {
                 Text(
                   dateStr,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.3),
+                    color: AppColors.adaptiveBodyGrey(context).withValues(alpha: 0.7),
                     fontFamily: 'Poppins',
                     fontSize: 11,
                   ),
@@ -274,8 +300,8 @@ class _TransactionCard extends StatelessWidget {
             children: [
               Text(
                 '₹${transaction.amount.toStringAsFixed(0)}',
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppColors.adaptiveInk(context),
                   fontFamily: 'Poppins',
                   fontWeight: FontWeight.w800,
                   fontSize: 16,
@@ -308,7 +334,7 @@ class _TransactionCard extends StatelessWidget {
     );
   }
 
-  Color _statusColor(String status) {
+  Color _statusColor(BuildContext context, String status) {
     switch (status) {
       case 'completed':
         return const Color(0xFF34C759);
@@ -317,7 +343,7 @@ class _TransactionCard extends StatelessWidget {
       case 'refunded':
         return const Color(0xFF007AFF);
       default:
-        return const Color(0xFFF5A623);
+        return AppColors.adaptiveInk(context);
     }
   }
 

@@ -7,6 +7,7 @@ import '../../payment/payment_screen.dart';
 import '../bloc/order_tracking_bloc.dart';
 import '../service/order_tracking_model.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/widgets/Cards.dart';
 import '../service/order_tracking_repo.dart';
 
 class OrderTrackingScreen extends StatelessWidget {
@@ -43,7 +44,7 @@ class _OrderTrackingView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         bottom: false,
         // Responsive Wrapper for Main Body
@@ -97,42 +98,9 @@ class _OrderTrackingView extends StatelessWidget {
   }
 
   Widget _buildScreenHeader() {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Order Tracking',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-              color: Color(0xFF111111),
-            ),
-          ),
-          SizedBox(height: 6),
-          Text(
-            'Monitor your policy status and lifecycle.',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w400,
-              color: Color(0xFF888888),
-            ),
-          ),
-        ],
-      ),
+    return const ScreenHeader(
+      title: 'Order Tracking',
+      subtitle: 'Monitor your policy status and lifecycle.',
     );
   }
 
@@ -154,7 +122,7 @@ class _OrderTrackingView extends StatelessWidget {
 
     return RefreshIndicator(
       color: const Color(0xFF1A1A1A),
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).cardColor,
       onRefresh: () async {
         context.read<OrderTrackingBloc>().add(RefreshOrder(orderId));
         await context.read<OrderTrackingBloc>().stream.firstWhere(
@@ -191,15 +159,19 @@ class _PremiumCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white, width: 1.5),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF2F2F2),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1A1A1A).withValues(alpha: 0.03),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -240,11 +212,11 @@ class _OrderInfoCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       order.orderId,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
-                        color: Color(0xFF1A1A1A),
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                   ],
@@ -293,24 +265,25 @@ class _MetaItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
-            color: Color(0xFF888888),
+            color: isDark ? const Color(0xFF888888) : const Color(0xFF888888),
           ),
         ),
         const SizedBox(height: 6),
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF222222),
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
       ],
@@ -438,7 +411,7 @@ class _LifecycleStepRow extends StatelessWidget {
                       fontSize: 15,
                       fontWeight: isActive || isDone ? FontWeight.w700 : FontWeight.w500,
                       color: isDone
-                          ? const Color(0xFF111111)
+                          ? Theme.of(context).colorScheme.onSurface
                           : isActive ? const Color(0xFF2B78C5) : const Color(0xFFAAAAAA),
                     ),
                   ),
@@ -448,7 +421,9 @@ class _LifecycleStepRow extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
-                      color: isActive ? const Color(0xFF555555) : const Color(0xFFAAAAAA),
+                      color: isActive
+                          ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)
+                          : const Color(0xFFAAAAAA),
                     ),
                   ),
                 ],
@@ -488,11 +463,16 @@ class _StepIcon extends StatelessWidget {
         width: 32,
         height: 32,
         decoration: BoxDecoration(
-          color: const Color(0xFF111111), // Next.js uses Dark Charcoal for current step
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFFF5A623)
+              : const Color(0xFF111111),
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF111111).withValues(alpha: 0.15),
+              color: (Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFFF5A623)
+                      : const Color(0xFF111111))
+                  .withValues(alpha: 0.15),
               blurRadius: 8,
               spreadRadius: 2,
             )
@@ -924,6 +904,7 @@ class _HelpCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return _PremiumCard(
       padding: const EdgeInsets.all(20),
       child: Row(
@@ -931,7 +912,7 @@ class _HelpCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF0F6FF),
+              color: isDark ? const Color(0xFF1E2D3D) : const Color(0xFFF0F6FF),
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(Icons.support_agent_rounded, color: Color(0xFF2B78C5), size: 24),
@@ -941,21 +922,21 @@ class _HelpCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Need Help?',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF111111),
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'Reach out to our support team.',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF888888),
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -991,7 +972,7 @@ class _LoadingView extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
@@ -1029,10 +1010,12 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
@@ -1041,7 +1024,7 @@ class _ErrorView extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFFFEF2F2),
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 4),
+                border: Border.all(color: Theme.of(context).cardColor, width: 4),
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFF992727).withValues(alpha: 0.1),
@@ -1056,10 +1039,10 @@ class _ErrorView extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF444444),
+                color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF444444),
                 height: 1.5,
               ),
             ),
@@ -1069,22 +1052,23 @@ class _ErrorView extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF111111),
+                  color: isDark ? Colors.white : const Color(0xFF111111),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF111111).withValues(alpha: 0.2),
+                      color: (isDark ? Colors.white : const Color(0xFF111111))
+                          .withValues(alpha: 0.2),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     )
                   ],
                 ),
-                child: const Text(
+                child: Text(
                   'Try Again',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: isDark ? Colors.black : Colors.white,
                   ),
                 ),
               ),

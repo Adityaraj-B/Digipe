@@ -142,7 +142,7 @@ class _RaiseClaimDialogState extends State<RaiseClaimDialog> {
         }
       },
       child: Dialog(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).cardColor,
         insetPadding: const EdgeInsets.all(16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: ConstrainedBox(
@@ -264,19 +264,33 @@ class _RaiseClaimDialogState extends State<RaiseClaimDialog> {
             letterSpacing: 0.3),
       );
 
-  InputDecoration _decoration({Widget? suffix, String? hint, String? error}) =>
-      InputDecoration(
-        hintText: hint,
-        filled: true,
-        fillColor: Colors.grey.shade100,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide.none),
-        suffixIcon: suffix,
-        errorText: error,
-      );
+  InputDecoration _decoration({Widget? suffix, String? hint, String? error}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(
+        color: isDark ? const Color(0xFF8E8E93) : const Color(0xFF6B7280),
+      ),
+      filled: true,
+      fillColor: isDark ? const Color(0xFF2C2C2E) : Colors.grey.shade100,
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: isDark
+            ? const BorderSide(color: Color(0xFF3A3A3C))
+            : BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: isDark
+            ? const BorderSide(color: Color(0xFF3A3A3C))
+            : BorderSide.none,
+      ),
+      suffixIcon: suffix,
+      errorText: error,
+    );
+  }
 
   Widget _dateField() {
     final invalid = _submitAttempted && _dateOfDamage == null;
@@ -310,6 +324,7 @@ class _RaiseClaimDialogState extends State<RaiseClaimDialog> {
       initialValue: _damageType,
       isDense: true,
       isExpanded: true,
+      dropdownColor: Theme.of(context).cardColor,
       decoration: _decoration(
           hint: 'Select damage type...', error: invalid ? 'Required' : null),
       items: _kDamageTypes
@@ -320,6 +335,9 @@ class _RaiseClaimDialogState extends State<RaiseClaimDialog> {
                 t,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
               ),
             ),
           )
@@ -348,12 +366,18 @@ class _RaiseClaimDialogState extends State<RaiseClaimDialog> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(10),
                         color: i == 0
-                            ? const Color(0xFFFCEAEA)
-                            : Colors.grey.shade50,
+                            ? (Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFF3D2323)
+                                : const Color(0xFFFCEAEA))
+                            : (Theme.of(context).brightness == Brightness.dark
+                                ? const Color(0xFF2C2C2E)
+                                : Colors.grey.shade50),
                         border: Border.all(
                             color: i == 0
                                 ? const Color(0xFFE0A9A6)
-                                : Colors.grey.shade300),
+                                : (Theme.of(context).brightness == Brightness.dark
+                                    ? const Color(0xFF3A3A3C)
+                                    : Colors.grey.shade300)),
                       ),
                       child: isUploading
                           ? const Center(
@@ -428,9 +452,15 @@ class _RaiseClaimDialogState extends State<RaiseClaimDialog> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 24),
         decoration: BoxDecoration(
-          color: Colors.grey.shade50,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF2C2C2E)
+              : Colors.grey.shade50,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade300),
+          border: Border.all(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF3A3A3C)
+                : Colors.grey.shade300,
+          ),
         ),
         child: _videoUploading
             ? const Column(

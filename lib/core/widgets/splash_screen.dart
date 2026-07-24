@@ -13,15 +13,24 @@ class SplashScreen extends StatelessWidget {
           children: [
             // Center Logo
             Image.asset(
-              'assets/images/favicon-4(1).png',
-              width: 120,
-              height: 120,
+              'assets/images/Logo White.png',
+              width: 160,
+              height: 60,
+              fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) {
                 // Fallback if image fails to load
-                return const Icon(
-                  Icons.bolt_rounded,
-                  color: Color(0xFFFAF9F8),
-                  size: 80,
+                return Image.asset(
+                  'assets/images/Icon.png',
+                  width: 80,
+                  height: 80,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return const Icon(
+                      Icons.bolt_rounded,
+                      color: Color(0xFFFAF9F8),
+                      size: 80,
+                    );
+                  },
                 );
               },
             ),

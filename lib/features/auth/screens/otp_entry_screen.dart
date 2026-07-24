@@ -110,12 +110,32 @@ class _OtpEntryScreenState extends State<OtpEntryScreen> {
         }
 
         return Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
-            backgroundColor: Colors.white, 
-            elevation: 0, 
+            backgroundColor: Theme.of(context).cardColor,
+            elevation: 0,
+            centerTitle: true,
+            title: Image.asset(
+              Theme.of(context).brightness == Brightness.dark
+                  ? 'assets/images/Logo White.png'
+                  : 'assets/images/Logo.png',
+              height: 24,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) => Text(
+                'DIGIPe',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+            ),
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios, size: 18), 
+              icon: Icon(
+                Icons.arrow_back_ios,
+                size: 18,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
               onPressed: () => Navigator.pop(context)
             )
           ),
@@ -124,9 +144,22 @@ class _OtpEntryScreenState extends State<OtpEntryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Enter OTP', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 32),
+                Text(
+                  'Enter OTP',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
                 const SizedBox(height: 8),
-                Text('We have sent a 6-digit code to $targetIdentifier.', style: const TextStyle(color: Colors.grey)),
+                Text(
+                  'We have sent a 6-digit code to $targetIdentifier.',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
                 const SizedBox(height: 32),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -182,8 +215,17 @@ class _OtpEntryScreenState extends State<OtpEntryScreen> {
         inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(1)],
         decoration: InputDecoration(
           filled: true,
-          fillColor: const Color(0xFFF9F9F9),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey[300]!)),
+          fillColor: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF2C2C2E)
+              : const Color(0xFFF9F9F9),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF3A3A3C)
+                  : Colors.grey.shade300,
+            ),
+          ),
         ),
         onChanged: (val) {
           if (val.isNotEmpty && index < 5) {

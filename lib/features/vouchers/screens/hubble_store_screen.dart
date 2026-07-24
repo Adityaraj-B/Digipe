@@ -46,49 +46,56 @@ class _HubbleStoreScreenState extends State<HubbleStoreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      body: SafeArea(
-        bottom: false,
-        child: BlocConsumer<HubbleBloc, HubbleState>(
-          listenWhen: (_, curr) => curr is HubbleReady,
-          listener: (context, state) {
-            if (state is HubbleReady) _initWebView(state.sdkUrl);
-          },
-          builder: (context, state) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // ── Header matching other screens ──
-                const ScreenHeader(
-                  title: 'Gift Cards',
-                  subtitle: 'Shop from hundreds of top brands instantly.',
-                  padding: EdgeInsets.fromLTRB(24, 20, 24, 12),
-                  titleFontSize: 25,
-                  subtitleFontSize: 15,
-                  gap: 4,
-                ),
+    // Use MediaQuery to get the bottom inset so content isn't hidden
+    // behind the floating nav bar (extendBody: true on the parent Scaffold).
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
-                // ── Progress bar while page loads ──
-                if (_controller != null && _pageLoading)
-                  TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0, end: _loadingProgress / 100),
-                    duration: const Duration(milliseconds: 200),
-                    builder: (_, value, __) => LinearProgressIndicator(
-                      value: value,
-                      minHeight: 2.5,
-                      backgroundColor: AppColors.hairline,
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFF5A623)),
-                    ),
+    return BlocConsumer<HubbleBloc, HubbleState>(
+      listenWhen: (_, curr) => curr is HubbleReady,
+      listener: (context, state) {
+        if (state is HubbleReady) _initWebView(state.sdkUrl);
+      },
+      builder: (context, state) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Header matching other screens ──
+            const ScreenHeader(
+              title: 'Gift Cards',
+              subtitle: 'Shop from hundreds of top brands instantly.',
+              padding: EdgeInsets.fromLTRB(24, 20, 24, 12),
+              titleFontSize: 25,
+              subtitleFontSize: 15,
+              gap: 4,
+            ),
+
+            // ── Progress bar while page loads ──
+            if (_controller != null && _pageLoading)
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: _loadingProgress / 100),
+                duration: const Duration(milliseconds: 200),
+                builder: (_, value, __) => LinearProgressIndicator(
+                  value: value,
+                  minHeight: 2.5,
+                  backgroundColor: AppColors.adaptiveHairline(context),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    AppColors.adaptiveInk(context),
                   ),
+                ),
+              ),
 
-                // ── Body ──
-                Expanded(child: _buildBody(state)),
-              ],
-            );
-          },
-        ),
-      ),
+            // ── Body — padded at bottom to clear the floating nav bar ──
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: bottomInset > 0 ? bottomInset + 0 : 88,
+                ),
+                child: _buildBody(state),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -113,8 +120,9 @@ class _HubbleStoreScreenState extends State<HubbleStoreScreen> {
 
   // ── Loading overlay ──
   Widget _buildOverlay(String message) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      color: AppColors.surface,
+      color: Theme.of(context).scaffoldBackgroundColor,
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -123,36 +131,41 @@ class _HubbleStoreScreenState extends State<HubbleStoreScreen> {
               width: 68,
               height: 68,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.adaptiveSurface(context),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: AppColors.adaptiveBorder(context)),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFF5A623).withValues(alpha: 0.15),
+                    color:
+                        AppColors.adaptiveInk(context).withValues(alpha: 0.12),
                     blurRadius: 24,
                     offset: const Offset(0, 8),
                   ),
                 ],
               ),
-              child: const Icon(Icons.card_giftcard_rounded, color: Color(0xFFF5A623), size: 30),
+              child: Icon(
+                Icons.card_giftcard_rounded,
+                color: AppColors.adaptiveInk(context),
+                size: 30,
+              ),
             ),
             const SizedBox(height: 24),
-            const SizedBox(
+            SizedBox(
               width: 22,
               height: 22,
               child: CircularProgressIndicator(
                 strokeWidth: 2.5,
-                color: Color(0xFFF5A623),
+                color: AppColors.adaptiveInk(context),
               ),
             ),
             const SizedBox(height: 16),
             Text(
               message,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'Poppins',
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: AppColors.bodyGrey,
+                color: AppColors.adaptiveBodyGrey(context),
               ),
             ),
           ],
@@ -163,6 +176,7 @@ class _HubbleStoreScreenState extends State<HubbleStoreScreen> {
 
   // ── Error state ──
   Widget _buildError(String message) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -174,17 +188,19 @@ class _HubbleStoreScreenState extends State<HubbleStoreScreen> {
               decoration: BoxDecoration(
                 color: AppColors.dangerBg,
                 shape: BoxShape.circle,
-                border: Border.all(color: AppColors.dangerFg.withValues(alpha: 0.15)),
+                border: Border.all(
+                    color: AppColors.dangerFg.withValues(alpha: 0.15)),
               ),
-              child: Icon(Icons.wifi_off_rounded, size: 34, color: AppColors.dangerFg),
+              child: const Icon(Icons.wifi_off_rounded,
+                  size: 34, color: AppColors.dangerFg),
             ),
             const SizedBox(height: 20),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'Poppins',
-                color: AppColors.bodyGrey,
+                color: AppColors.adaptiveBodyGrey(context),
                 fontWeight: FontWeight.w500,
                 fontSize: 14.5,
               ),
@@ -194,7 +210,9 @@ class _HubbleStoreScreenState extends State<HubbleStoreScreen> {
               icon: Icons.refresh_rounded,
               label: 'Try Again',
               onTap: () => context.read<HubbleBloc>().add(LoadHubbleSDK()),
-              colors: const [Color(0xFFF5A623), Color(0xFFE6961A)],
+              colors: isDark
+                  ? const [Colors.white, Color(0xFFE0E0E0)]
+                  : const [Color(0xFF0D0D0D), Color(0xFF1F1F1F)],
             ),
           ],
         ),

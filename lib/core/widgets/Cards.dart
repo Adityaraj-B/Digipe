@@ -33,7 +33,39 @@ class AppColors {
   static const dangerFg = Color(0xFF992727);
   static const neutralBg = Color(0xFFF5F5F5);
   static const neutralFg = Color(0xFF666666);
+
+  // ── Adaptive helpers (context-aware, use these in widgets) ───────────
+  /// Primary text: near-black in light, near-white in dark.
+  static Color adaptiveInk(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? Colors.white
+          : const Color(0xFF111111);
+
+  /// Secondary / muted text.
+  static Color adaptiveBodyGrey(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF8E8E93)
+          : const Color(0xFF6E6E73);
+
+  /// Surface fill (input bg, icon bg, inner card areas).
+  static Color adaptiveSurface(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF2C2C2E)
+          : const Color(0xFFF9F9FA);
+
+  /// Card border / divider.
+  static Color adaptiveBorder(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF3A3A3C)
+          : const Color(0xFFE8E8ED);
+
+  /// Hairline divider.
+  static Color adaptiveHairline(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF2A2A2A)
+          : const Color(0xFFF0F0F2);
 }
+
 
 /// The rounded, softly-shadowed card used for every content block.
 /// This is the one place that defines "what a card looks like" in the app.
@@ -49,18 +81,19 @@ class PremiumCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: const Color(0xFFF2F2F2),
+          color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E5EA),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.035),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.035),
             blurRadius: 18,
             offset: const Offset(0, 6),
           ),
@@ -118,15 +151,16 @@ class MetaItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
-            color: AppColors.bodyGrey,
+            color: cs.onSurface.withValues(alpha: 0.5),
           ),
         ),
         const SizedBox(height: 6),
@@ -134,10 +168,10 @@ class MetaItem extends StatelessWidget {
           value,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w700,
-            color: AppColors.valueDark,
+            color: cs.onSurface,
           ),
         ),
       ],
@@ -167,6 +201,10 @@ class ActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = Theme.of(context).cardColor;
+    final borderColor = isDark ? const Color(0xFF2A2A2A) : AppColors.border;
+    final textColor = Theme.of(context).colorScheme.onSurface;
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 200),
       opacity: enabled ? 1.0 : 0.4,
@@ -178,12 +216,12 @@ class ActionTile extends StatelessWidget {
           child: Ink(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: cardColor,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: borderColor),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.01),
+                  color: Colors.black.withValues(alpha: isDark ? 0.0 : 0.01),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
@@ -194,24 +232,24 @@ class ActionTile extends StatelessWidget {
                 Icon(
                   icon,
                   size: 19,
-                  color: iconColor ?? const Color(0xFF3F3F46),
+                  color: iconColor ?? textColor.withValues(alpha: 0.75),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.valueDark,
+                      color: textColor,
                     ),
                   ),
                 ),
                 if (enabled && showChevron)
-                  const Icon(
+                  Icon(
                     Icons.arrow_forward_ios_rounded,
                     size: 14,
-                    color: Color(0xFFC5C5C5),
+                    color: textColor.withValues(alpha: 0.3),
                   ),
               ],
             ),
@@ -240,7 +278,10 @@ class CompactActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = color ?? AppColors.valueDark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fg = color ?? Theme.of(context).colorScheme.onSurface;
+    final cardColor = Theme.of(context).cardColor;
+    final borderColor = isDark ? const Color(0xFF2A2A2A) : AppColors.border;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -249,9 +290,9 @@ class CompactActionButton extends StatelessWidget {
         child: Ink(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cardColor,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: borderColor),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -365,13 +406,15 @@ class ScreenHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cs = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).scaffoldBackgroundColor,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
+            color: Colors.black.withValues(alpha: isDark ? 0.0 : 0.02),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -387,7 +430,7 @@ class ScreenHeader extends StatelessWidget {
               fontSize: titleFontSize,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.5,
-              color: AppColors.ink,
+              color: cs.onSurface,
             ),
           ),
           SizedBox(height: gap),
@@ -396,7 +439,7 @@ class ScreenHeader extends StatelessWidget {
             style: TextStyle(
               fontSize: subtitleFontSize,
               fontWeight: FontWeight.w400,
-              color: AppColors.bodyGrey,
+              color: cs.onSurface.withValues(alpha: 0.55),
             ),
           ),
           if (bottom != null) ...[
@@ -457,9 +500,9 @@ class FadedDivider extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.hairline.withValues(alpha: 0.2),
-            AppColors.hairline,
-            AppColors.hairline.withValues(alpha: 0.2),
+            AppColors.adaptiveHairline(context).withValues(alpha: 0.2),
+            AppColors.adaptiveHairline(context),
+            AppColors.adaptiveHairline(context).withValues(alpha: 0.2),
           ],
         ),
       ),
@@ -488,78 +531,90 @@ class PremiumEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textColor = AppColors.adaptiveBodyGrey(context);
+    final btnColor = AppColors.adaptiveInk(context);
+    final circleBorder = Theme.of(context).cardColor;
     return LayoutBuilder(
       builder: (context, constraints) {
-        return SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 80,
+        final hasBoundedHeight = constraints.maxHeight.isFinite;
+        final childWidget = Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: iconBg,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: circleBorder, width: 4),
+                    boxShadow: [
+                      BoxShadow(
+                        color: iconFg.withValues(alpha: 0.1),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Icon(icon, size: 36, color: iconFg),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: textColor,
+                    height: 1.5,
+                  ),
+                ),
+                if (actionLabel != null && onAction != null) ...[
+                  const SizedBox(height: 32),
+                  GestureDetector(
+                    onTap: onAction,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
                       decoration: BoxDecoration(
-                        color: iconBg,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 4),
+                        color: btnColor,
+                        borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: iconFg.withValues(alpha: 0.1),
-                            blurRadius: 16,
+                            color: btnColor.withValues(alpha: 0.2),
+                            blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
                         ],
                       ),
-                      child: Icon(icon, size: 36, color: iconFg),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      message,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF444444),
-                        height: 1.5,
-                      ),
-                    ),
-                    if (actionLabel != null && onAction != null) ...[
-                      const SizedBox(height: 32),
-                      GestureDetector(
-                        onTap: onAction,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                          decoration: BoxDecoration(
-                            color: AppColors.ink,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.ink.withValues(alpha: 0.2),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            actionLabel!,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
+                      child: Text(
+                        actionLabel!,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.black
+                              : Colors.white,
                         ),
                       ),
-                    ],
-                  ],
-                ),
-              ),
+                    ),
+                  ),
+                ],
+              ],
             ),
+          ),
+        );
+
+        if (!hasBoundedHeight) {
+          return childWidget;
+        }
+
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: childWidget,
           ),
         );
       },

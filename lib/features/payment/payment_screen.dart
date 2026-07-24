@@ -139,16 +139,17 @@ class _PaymentPreviewScreenState extends State<PaymentPreviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF8F9FA),
+        backgroundColor: Theme.of(context).cardColor,
         elevation: 0,
         leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+            icon: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Theme.of(context).colorScheme.onSurface),
             onPressed: () => Navigator.of(context).pop()
         ),
-        title: const Text('Payment Preview', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        title: Text('Payment Preview', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
       ),
       body: Column(
         children: [
@@ -162,18 +163,18 @@ class _PaymentPreviewScreenState extends State<PaymentPreviewScreen> {
                     children: [
                       Container(
                         decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Theme.of(context).cardColor,
                             borderRadius: BorderRadius.circular(24),
-                            border: Border.all(color: const Color(0xFFE5E5EA))
+                            border: Border.all(color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E5EA))
                         ),
                         padding: const EdgeInsets.all(20),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Row(children: [
-                              Icon(Icons.credit_card_outlined, size: 22),
-                              SizedBox(width: 12),
-                              Expanded(child: Text('Payment Summary', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700))),
+                            Row(children: [
+                              Icon(Icons.credit_card_outlined, size: 22, color: Theme.of(context).colorScheme.onSurface),
+                              const SizedBox(width: 12),
+                              Expanded(child: Text('Payment Summary', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface))),
                             ]),
                             const Divider(height: 48),
                             _PriceRow(label: 'Product', valueText: widget.product, isBold: true),
@@ -184,8 +185,8 @@ class _PaymentPreviewScreenState extends State<PaymentPreviewScreen> {
                             Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text('Total Payable', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                                  Text('Rs. ${_totalAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+                                  Text('Total Payable', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.onSurface)),
+                                  Text('Rs. ${_totalAmount.toStringAsFixed(2)}', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.onSurface)),
                                 ]
                             ),
                           ],
@@ -199,9 +200,9 @@ class _PaymentPreviewScreenState extends State<PaymentPreviewScreen> {
           ),
           Container(
             padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: Color(0xFFE5E5EA)))
+            decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                border: Border(top: BorderSide(color: Theme.of(context).dividerColor))
             ),
             child: SafeArea(
               top: false,
@@ -211,13 +212,13 @@ class _PaymentPreviewScreenState extends State<PaymentPreviewScreen> {
                   child: ElevatedButton(
                     onPressed: _isProcessing ? null : _initiatePayment,
                     style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        foregroundColor: Colors.white,
+                        backgroundColor: isDark ? Colors.white : Colors.black,
+                        foregroundColor: isDark ? Colors.black : Colors.white,
                         minimumSize: const Size(double.infinity, 56),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))
                     ),
                     child: _isProcessing
-                        ? const CircularProgressIndicator(color: Colors.white)
+                        ? CircularProgressIndicator(color: isDark ? Colors.black : Colors.white)
                         : const Text('Pay Now', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                   ),
                 ),
@@ -252,7 +253,7 @@ class _PriceRow extends StatelessWidget {
       child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(fontSize: 14, color: Color(0xFF8E8E93))),
+            Text(label, style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
             Flexible(
               child: Text(
                   valueText ?? 'Rs. ${value?.toStringAsFixed(2)}',
@@ -260,7 +261,7 @@ class _PriceRow extends StatelessWidget {
                   style: TextStyle(
                       fontSize: 14,
                       fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
-                      color: isDiscount ? Colors.green : Colors.black
+                      color: isDiscount ? Colors.green : Theme.of(context).colorScheme.onSurface
                   )
               ),
             ),

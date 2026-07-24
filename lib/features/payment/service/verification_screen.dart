@@ -121,10 +121,11 @@ class _PaymentVerifyingScreenState extends State<PaymentVerifyingScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return PopScope(
       canPop: _step == _VerifyStep.failed,
       child: Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -136,9 +137,9 @@ class _PaymentVerifyingScreenState extends State<PaymentVerifyingScreen>
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 32),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFEEEEEE)),
+                  border: Border.all(color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFEEEEEE)),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -146,17 +147,17 @@ class _PaymentVerifyingScreenState extends State<PaymentVerifyingScreen>
                     if (_step == _VerifyStep.failed) ...[
                       const Icon(Icons.error_outline_rounded, size: 64, color: Color(0xFFEF4444)),
                       const SizedBox(height: 24),
-                      const Text('Verification Failed', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A))),
+                      Text('Verification Failed', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface)),
                       const SizedBox(height: 10),
-                      Text(_statusText, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, color: Color(0xFF888888), height: 1.5)),
+                      Text(_statusText, textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), height: 1.5)),
                       const SizedBox(height: 24),
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
                           onPressed: () => Navigator.of(context).pop(),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1A1A1A),
-                            foregroundColor: Colors.white,
+                            backgroundColor: isDark ? Colors.white : const Color(0xFF1A1A1A),
+                            foregroundColor: isDark ? Colors.black : Colors.white,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
@@ -171,17 +172,17 @@ class _PaymentVerifyingScreenState extends State<PaymentVerifyingScreen>
                           height: 64,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: const Color(0xFF1A1A1A), width: 2),
+                            border: Border.all(color: Theme.of(context).colorScheme.onSurface, width: 2),
                           ),
-                          child: const Icon(Icons.schedule_rounded, size: 32, color: Color(0xFF1A1A1A)),
+                          child: Icon(Icons.schedule_rounded, size: 32, color: Theme.of(context).colorScheme.onSurface),
                         ),
                       ),
                       const SizedBox(height: 24),
-                      const Text('Order Verification', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A))),
+                      Text('Order Verification', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface)),
                       const SizedBox(height: 10),
                       AnimatedSwitcher(
                         duration: const Duration(milliseconds: 300),
-                        child: Text(_statusText, key: ValueKey(_step), textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, color: Color(0xFF888888), height: 1.5)),
+                        child: Text(_statusText, key: ValueKey(_step), textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), height: 1.5)),
                       ),
                     ],
                   ],
@@ -191,7 +192,7 @@ class _PaymentVerifyingScreenState extends State<PaymentVerifyingScreen>
             const Spacer(),
             Padding(
               padding: const EdgeInsets.only(bottom: 24),
-              child: Text('© 2026, Made with ❤ by DIGIPe', style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+              child: Text('© 2026, Made with ❤ by DIGIPe', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4))),
             ),
           ],
         ),
@@ -207,8 +208,9 @@ class PaymentSuccessScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -224,17 +226,17 @@ class PaymentSuccessScreen extends StatelessWidget {
                       child: const Icon(Icons.check_rounded, size: 40, color: Color(0xFF3B6D11)),
                     ),
                     const SizedBox(height: 20),
-                    const Text('Payment Successful!', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1A1A1A))),
+                    Text('Payment Successful!', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
                     const SizedBox(height: 8),
-                    const Text('Your insurance policy has been issued successfully.', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: Color(0xFF888888), height: 1.5)),
+                    Text('Your insurance policy has been issued successfully.', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), height: 1.5)),
                     const SizedBox(height: 28),
                     Container(
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFEEEEEE))),
+                      decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(16), border: Border.all(color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFEEEEEE))),
                       padding: const EdgeInsets.all(20),
                       child: Column(
                         children: [
                           _SummaryRow(label: 'Internal Order ID', value: orderId),
-                          const Divider(height: 20, color: Color(0xFFF0F0F0)),
+                          Divider(height: 20, color: Theme.of(context).dividerColor),
                           const _SummaryRow(label: 'Status', value: 'CONFIRMED', valueBold: true),
                         ],
                       ),
@@ -244,8 +246,8 @@ class PaymentSuccessScreen extends StatelessWidget {
                       onTap: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => OrderTrackingScreen(orderId: orderId))),
                       child: Container(
                         width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 16),
-                        decoration: BoxDecoration(color: const Color(0xFF1A1A1A), borderRadius: BorderRadius.circular(12)),
-                        child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.receipt_long_outlined, size: 18, color: Colors.white), SizedBox(width: 8), Text('View Order & Track', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white))]),
+                        decoration: BoxDecoration(color: isDark ? Colors.white : const Color(0xFF1A1A1A), borderRadius: BorderRadius.circular(12)),
+                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.receipt_long_outlined, size: 18, color: isDark ? Colors.black : Colors.white), const SizedBox(width: 8), Text('View Order & Track', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: isDark ? Colors.black : Colors.white))]),
                       ),
                     ),
                   ],
@@ -266,16 +268,17 @@ class _SummaryRow extends StatelessWidget {
   const _SummaryRow({required this.label, required this.value, this.valueBold = false});
   @override
   Widget build(BuildContext context) {
-    return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(label, style: const TextStyle(fontSize: 14, color: Color(0xFF888888))), Flexible(child: Text(value, textAlign: TextAlign.right, style: TextStyle(fontSize: 14, fontWeight: valueBold ? FontWeight.w700 : FontWeight.w500, color: const Color(0xFF1A1A1A), fontFamily: 'monospace')))]);
+    return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(label, style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))), Flexible(child: Text(value, textAlign: TextAlign.right, style: TextStyle(fontSize: 14, fontWeight: valueBold ? FontWeight.w700 : FontWeight.w500, color: Theme.of(context).colorScheme.onSurface, fontFamily: 'monospace')))]);
   }
 }
 
 class _DigiPeHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      color: const Color(0xFFF5F5F5), padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      child: const Row(children: [Text('DIGIPE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 1.5, color: Color(0xFF1A1A1A))), Spacer(), CircleAvatar(radius: 16, backgroundColor: Color(0xFF1A1A1A), child: Icon(Icons.person, size: 18, color: Colors.white))]),
+      color: Theme.of(context).scaffoldBackgroundColor, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      child: Row(children: [Text('DIGIPE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 1.5, color: Theme.of(context).colorScheme.onSurface)), const Spacer(), CircleAvatar(radius: 16, backgroundColor: isDark ? Colors.white : const Color(0xFF1A1A1A), child: Icon(Icons.person, size: 18, color: isDark ? Colors.black : Colors.white))]),
     );
   }
 }

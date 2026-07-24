@@ -123,14 +123,15 @@ class _ProductViewState extends State<_ProductView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).cardColor,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black, size: 20),
+          icon: Icon(Icons.arrow_back_ios_new_rounded,
+              color: Theme.of(context).colorScheme.onSurface, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
         title: BlocBuilder<ProductBloc, ProductState>(
@@ -144,9 +145,9 @@ class _ProductViewState extends State<_ProductView> {
               child: Text(
                 title,
                 key: ValueKey(title),
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Poppins',
-                  color: Colors.black,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontWeight: FontWeight.w700,
                   fontSize: 16,
                 ),
@@ -156,7 +157,7 @@ class _ProductViewState extends State<_ProductView> {
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(color: const Color(0xFFF0F0F0), height: 1),
+          child: Container(color: Theme.of(context).dividerColor, height: 1),
         ),
       ),
       body: BlocConsumer<ProductBloc, ProductState>(
@@ -296,17 +297,17 @@ class _ProductViewState extends State<_ProductView> {
           const SizedBox(height: 6),
           Text(
             product.name,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF1A1A1A),
+              color: Theme.of(context).colorScheme.onSurface,
               letterSpacing: -0.5,
             ),
           ),
           const SizedBox(height: 12),
           _buildRatingRow(),
           const SizedBox(height: 10),
-          const Divider(color: Color(0xFFE5E5EA), height: 1),
+          Divider(color: Theme.of(context).dividerColor, height: 1),
           const SizedBox(height: 15),
           _buildSectionTitle('SELECT VARIANT: SUM INSURED'),
           const SizedBox(height: 16),
@@ -342,10 +343,10 @@ class _ProductViewState extends State<_ProductView> {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w700,
-        color: Color(0xFF8E8E93),
+        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
         letterSpacing: 0.8,
       ),
     );
@@ -361,6 +362,7 @@ class _ProductViewState extends State<_ProductView> {
       runSpacing: 12,
       children: items.map((item) {
         final isSelected = selectedValue == item;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         return GestureDetector(
           onTap: () {
             NotificationService.lightImpact();
@@ -375,19 +377,19 @@ class _ProductViewState extends State<_ProductView> {
             ),
             decoration: BoxDecoration(
               color: isSelected
-                  ? const Color(0xFF111111)
-                  : const Color(0xFFF9F9F9),
+                  ? (isDark ? Colors.white : const Color(0xFF111111))
+                  : (isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF9F9F9)),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: isSelected
-                    ? const Color(0xFF111111)
-                    : const Color(0xFFE8E8ED),
+                    ? (isDark ? Colors.white : const Color(0xFF111111))
+                    : (isDark ? const Color(0xFF3A3A3C) : const Color(0xFFE8E8ED)),
                 width: 1.2,
               ),
               boxShadow: [
                 BoxShadow(
                   color: isSelected
-                      ? Colors.black.withValues(alpha: 0.10)
+                      ? Colors.black.withValues(alpha: isDark ? 0.2 : 0.10)
                       : Colors.black.withValues(alpha: 0.035),
                   blurRadius: isSelected ? 18 : 10,
                   spreadRadius: 0,
@@ -405,8 +407,8 @@ class _ProductViewState extends State<_ProductView> {
                     : FontWeight.w600,
                 letterSpacing: 0.15,
                 color: isSelected
-                    ? Colors.white
-                    : const Color(0xFF3A3A3C),
+                    ? (isDark ? Colors.black : Colors.white)
+                    : (isDark ? Colors.white : const Color(0xFF3A3A3C)),
               ),
               child: Text(item),
             ),
@@ -486,15 +488,18 @@ class _ProductViewState extends State<_ProductView> {
   }
 
   Widget _buildBenefitsCard(List<String> features) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFF0F0F0)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF0F0F0),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -503,17 +508,18 @@ class _ProductViewState extends State<_ProductView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.verified_user_outlined, size: 22, color: Color(0xFF1A1A1A)),
-              SizedBox(width: 10),
+              Icon(Icons.verified_user_outlined,
+                  size: 22, color: Theme.of(context).colorScheme.onSurface),
+              const SizedBox(width: 10),
               Flexible(
                 child: Text(
                   'Coverage & Benefits',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1A1A1A),
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -545,10 +551,10 @@ class _ProductViewState extends State<_ProductView> {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF48484A),
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
                 height: 1.4,
               ),
             ),
@@ -561,16 +567,17 @@ class _ProductViewState extends State<_ProductView> {
   Widget _buildStickyBottomBar(BuildContext context, ProductLoaded state) {
     final plan = state.selectedPlan!;
     final safeBottom = MediaQuery.of(context).padding.bottom;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         border: Border(
-          top: BorderSide(color: const Color(0xFFE5E5EA).withValues(alpha: 0.5)),
+          top: BorderSide(color: Theme.of(context).dividerColor),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
             blurRadius: 20,
             offset: const Offset(0, -5),
           ),
@@ -588,12 +595,12 @@ class _ProductViewState extends State<_ProductView> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Total Premium',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF8E8E93),
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -606,10 +613,10 @@ class _ProductViewState extends State<_ProductView> {
                               alignment: Alignment.centerLeft,
                               child: Text(
                                 'Rs. ${plan.premium.toStringAsFixed(0)}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 25,
                                   fontWeight: FontWeight.w800,
-                                  color: Color(0xFF1A1A1A),
+                                  color: Theme.of(context).colorScheme.onSurface,
                                   height: 1,
                                 ),
                               ),
@@ -624,10 +631,10 @@ class _ProductViewState extends State<_ProductView> {
                                 alignment: Alignment.centerLeft,
                                 child: Text(
                                   'Rs. ${(plan.premium * 1.1).toStringAsFixed(0)}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
-                                    color: Color(0xFFC7C7CC),
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.35),
                                     decoration: TextDecoration.lineThrough,
                                   ),
                                 ),
@@ -648,8 +655,8 @@ class _ProductViewState extends State<_ProductView> {
                       _onCheckout(context, state);
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1A1A1A),
-                      foregroundColor: Colors.white,
+                      backgroundColor: isDark ? Colors.white : const Color(0xFF1A1A1A),
+                      foregroundColor: isDark ? Colors.black : Colors.white,
                       elevation: 10,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       shape: RoundedRectangleBorder(

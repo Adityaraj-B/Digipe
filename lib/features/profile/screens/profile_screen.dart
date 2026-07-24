@@ -9,6 +9,7 @@ import '../../../../core/models/api_models.dart';
 import '../../auth/screens/signup_screen.dart';
 import '../../main_layout/bloc/bottom_nav_bloc.dart';
 import '../../geofencing/services/geofence_manager.dart';
+import '../../../../core/theme/theme_cubit.dart';
 import 'debug_settings_screen.dart';
 
 // ─── Legal URLs ───────────────────────────────────────────────────────────────
@@ -33,7 +34,7 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: BlocBuilder<AuthBloc, AuthState>(
           builder: (context, state) {
@@ -116,6 +117,7 @@ class _AuthenticatedProfileView extends StatelessWidget {
           onTap: () => _showNotificationsSheet(context),
         ),
         _GeofenceToggleCard(),
+        const _AppearanceCard(),
         _ActionCard(
           icon: Icons.privacy_tip_outlined,
           title: 'Privacy & Security',
@@ -457,10 +459,10 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       title,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w700,
-        color: app.AppColors.textSecondary,
+        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45),
         letterSpacing: 0.4,
       ),
     );
@@ -484,13 +486,31 @@ class _ActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconColor = destructive ? const Color(0xFFB91C1C) : app.AppColors.ctaButton;
-    final tint = destructive ? const Color(0xFFFEE2E2) : app.AppColors.inputFill;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final iconColor = destructive
+        ? const Color(0xFFB91C1C)
+        : Theme.of(context).colorScheme.onSurface;
+    final tint = destructive
+        ? const Color(0xFFFEE2E2)
+        : isDark
+            ? const Color(0xFF2C2C2E)
+            : app.AppColors.inputFill;
+    final cardColor = Theme.of(context).cardColor;
+    final borderColor = isDark
+        ? const Color(0xFF2A2A2A)
+        : app.AppColors.inputBorder.withValues(alpha: 0.55);
+    final titleColor = destructive
+        ? const Color(0xFFB91C1C)
+        : Theme.of(context).colorScheme.onSurface;
+    final subtitleColor = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5);
+    final chevronColor = destructive
+        ? const Color(0xFFB91C1C).withValues(alpha: 0.55)
+        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(18),
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
@@ -498,7 +518,7 @@ class _ActionCard extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: app.AppColors.inputBorder.withValues(alpha: 0.55)),
+              border: Border.all(color: borderColor),
             ),
             child: ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
@@ -516,21 +536,21 @@ class _ActionCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: destructive ? const Color(0xFFB91C1C) : app.AppColors.textPrimary,
+                  color: titleColor,
                 ),
               ),
               subtitle: Text(
                 subtitle,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   height: 1.35,
-                  color: app.AppColors.textSecondary,
+                  color: subtitleColor,
                 ),
               ),
               trailing: Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 14,
-                color: destructive ? const Color(0xFFB91C1C).withValues(alpha: 0.55) : app.AppColors.textHint,
+                color: chevronColor,
               ),
             ),
           ),
@@ -897,10 +917,18 @@ class _ProfileSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final iconBg = isDark ? const Color(0xFF2C2C2E) : app.AppColors.inputFill;
+    final handleColor = isDark ? const Color(0xFF3A3A3C) : app.AppColors.inputBorder;
+    final titleColor = Theme.of(context).colorScheme.onSurface;
+    final btnBg = isDark ? Colors.white : app.AppColors.ctaButton;
+    final btnFg = isDark ? Colors.black : app.AppColors.ctaButtonText;
+
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      decoration: BoxDecoration(
+        color: sheetBg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: SafeArea(
         top: false,
@@ -915,7 +943,7 @@ class _ProfileSheet extends StatelessWidget {
                   width: 44,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: app.AppColors.inputBorder,
+                    color: handleColor,
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
@@ -927,19 +955,19 @@ class _ProfileSheet extends StatelessWidget {
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: app.AppColors.inputFill,
+                      color: iconBg,
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: Icon(icon, color: app.AppColors.ctaButton),
+                    child: Icon(icon, color: titleColor),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
-                        color: app.AppColors.textPrimary,
+                        color: titleColor,
                       ),
                     ),
                   ),
@@ -954,8 +982,8 @@ class _ProfileSheet extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: () => Navigator.pop(context),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: app.AppColors.ctaButton,
-                    foregroundColor: app.AppColors.ctaButtonText,
+                    backgroundColor: btnBg,
+                    foregroundColor: btnFg,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     elevation: 0,
                   ),
@@ -996,14 +1024,81 @@ class _SheetBullet extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 height: 1.45,
-                color: app.AppColors.textSecondary,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Appearance (dark mode) toggle card ──────────────────────────────────────
+
+class _AppearanceCard extends StatelessWidget {
+  const _AppearanceCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = Theme.of(context).cardColor;
+    final borderColor = isDark
+        ? const Color(0xFF2A2A2A)
+        : app.AppColors.inputBorder.withValues(alpha: 0.55);
+    final iconBg = isDark ? const Color(0xFF2C2C2E) : app.AppColors.inputFill;
+    final titleColor = Theme.of(context).colorScheme.onSurface;
+    final subtitleColor = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: borderColor),
+        ),
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+          leading: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+              size: 22,
+              color: titleColor,
+            ),
+          ),
+          title: Text(
+            'Appearance',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: titleColor,
+            ),
+          ),
+          subtitle: Text(
+            isDark ? 'Dark mode is on' : 'Light mode is on',
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.35,
+              color: subtitleColor,
+            ),
+          ),
+          trailing: Switch.adaptive(
+            value: isDark,
+            activeThumbColor: Colors.white,
+            activeTrackColor: app.AppColors.sunOrange,
+            onChanged: (_) => context.read<ThemeCubit>().toggle(),
+          ),
+        ),
       ),
     );
   }
@@ -1019,13 +1114,22 @@ class _GeofenceToggleCardState extends State<_GeofenceToggleCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = Theme.of(context).cardColor;
+    final borderColor = isDark
+        ? const Color(0xFF2A2A2A)
+        : app.AppColors.inputBorder.withValues(alpha: 0.55);
+    final iconBg = isDark ? const Color(0xFF2C2C2E) : app.AppColors.inputFill;
+    final titleColor = Theme.of(context).colorScheme.onSurface;
+    final subtitleColor = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardColor,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: app.AppColors.inputBorder.withValues(alpha: 0.55)),
+          border: Border.all(color: borderColor),
         ),
         child: ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
@@ -1033,30 +1137,31 @@ class _GeofenceToggleCardState extends State<_GeofenceToggleCard> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: app.AppColors.inputFill,
+              color: iconBg,
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(Icons.location_on_outlined, size: 22, color: app.AppColors.ctaButton),
+            child: Icon(Icons.location_on_outlined, size: 22, color: titleColor),
           ),
-          title: const Text(
+          title: Text(
             'Partner Offer Alerts',
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: app.AppColors.textPrimary,
+              color: titleColor,
             ),
           ),
-          subtitle: const Text(
+          subtitle: Text(
             'Get notified about discounts when near partner stores',
             style: TextStyle(
               fontSize: 12,
               height: 1.35,
-              color: app.AppColors.textSecondary,
+              color: subtitleColor,
             ),
           ),
           trailing: Switch.adaptive(
             value: _enabled,
-            activeColor: app.AppColors.ctaButton,
+            activeThumbColor: Colors.white,
+            activeTrackColor: app.AppColors.sunOrange,
             onChanged: (val) async {
               setState(() => _enabled = val);
               final manager = context.read<GeofenceManager>();
@@ -1090,10 +1195,19 @@ class _LegalLinkTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = Theme.of(context).cardColor;
+    final borderColor = isDark
+        ? const Color(0xFF2A2A2A)
+        : app.AppColors.inputBorder.withValues(alpha: 0.55);
+    final iconBg = isDark ? const Color(0xFF1A2742) : const Color(0xFFEFF6FF);
+    final titleColor = Theme.of(context).colorScheme.onSurface;
+    final subtitleColor = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(18),
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
@@ -1101,7 +1215,7 @@ class _LegalLinkTile extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: app.AppColors.inputBorder.withValues(alpha: 0.55)),
+              border: Border.all(color: borderColor),
             ),
             child: ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
@@ -1109,25 +1223,25 @@ class _LegalLinkTile extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
+                  color: iconBg,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(icon, size: 22, color: const Color(0xFF2563EB)),
               ),
               title: Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: app.AppColors.textPrimary,
+                  color: titleColor,
                 ),
               ),
               subtitle: Text(
                 subtitle,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   height: 1.35,
-                  color: app.AppColors.textSecondary,
+                  color: subtitleColor,
                 ),
               ),
               trailing: const Icon(

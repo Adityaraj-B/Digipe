@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
+import '../../../core/widgets/Cards.dart';
 import '../services/voucher_service.dart';
 
 class VoucherHistoryScreen extends StatefulWidget {
@@ -45,14 +46,14 @@ class _VoucherHistoryScreenState extends State<VoucherHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('My Vouchers', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF131313),
         foregroundColor: Colors.white,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFFF5A623)))
+          ? Center(child: CircularProgressIndicator(color: AppColors.adaptiveInk(context)))
           : _error != null
               ? _buildErrorView()
               : _history.isEmpty

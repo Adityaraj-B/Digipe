@@ -99,20 +99,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: _surface.withValues(alpha: 0.7),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: _surface, width: 1.5),
-                        ),
-                        child: const Text(
+                      Image.asset(
+                        'assets/images/Logo.png',
+                        height: 28,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) => const Text(
                           'DIGIPe',
                           style: TextStyle(
                             color: _ink,
                             fontWeight: FontWeight.w800,
                             letterSpacing: -0.5,
+                            fontSize: 20,
                           ),
                         ),
                       ),

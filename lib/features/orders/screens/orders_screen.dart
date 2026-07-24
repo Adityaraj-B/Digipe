@@ -191,7 +191,7 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -254,55 +254,75 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
   }
 
   Widget _buildSearchBar() {
-    return TextField(
-      controller: _searchController,
-      onChanged: (_) => _onSearchOrFilterChanged(),
-      style: const TextStyle(fontSize: 14, color: AppColors.ink),
-      decoration: InputDecoration(
-        hintText: 'Search Order ID...',
-        hintStyle: const TextStyle(fontSize: 14, color: AppColors.bodyGrey),
-        prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.bodyGrey),
-        filled: true,
-        fillColor: AppColors.surface,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
+    return Builder(builder: (context) {
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      return TextField(
+        controller: _searchController,
+        onChanged: (_) => _onSearchOrFilterChanged(),
+        style: TextStyle(fontSize: 14, color: AppColors.adaptiveInk(context)),
+        decoration: InputDecoration(
+          hintText: 'Search Order ID...',
+          hintStyle: TextStyle(fontSize: 14, color: AppColors.adaptiveBodyGrey(context)),
+          prefixIcon: Icon(Icons.search_rounded, size: 20, color: AppColors.adaptiveBodyGrey(context)),
+          filled: true,
+          fillColor: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F4),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(
+              color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFE5E5EA),
+              width: 1,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(
+              color: isDark ? Colors.white : const Color(0xFF111111),
+              width: 1.5,
+            ),
+          ),
+          contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
         ),
-        contentPadding: const EdgeInsets.symmetric(vertical: 14),
-      ),
-    );
+      );
+    });
   }
 
   Widget _buildStatusDropdown() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _selectedStatus,
-          isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.bodyGrey),
-          items: _statusOptions.map((String status) {
-            return DropdownMenuItem<String>(
-              value: status,
-              child: Text(status, style: const TextStyle(fontSize: 14, color: AppColors.ink)),
-            );
-          }).toList(),
-          onChanged: (String? newValue) {
-            if (newValue != null) {
-              setState(() {
-                _selectedStatus = newValue;
-              });
-              // Ensure we close and re-trigger search/filter correctly
-              _onSearchOrFilterChanged();
-            }
-          },
+    return Builder(builder: (context) {
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F4),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFE5E5EA),
+            width: 1,
+          ),
         ),
-      ),
-    );
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: _selectedStatus,
+            isExpanded: true,
+            dropdownColor: Theme.of(context).cardColor,
+            icon: Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.adaptiveBodyGrey(context)),
+            items: _statusOptions.map((String status) {
+              return DropdownMenuItem<String>(
+                value: status,
+                child: Text(status, style: TextStyle(fontSize: 14, color: AppColors.adaptiveInk(context))),
+              );
+            }).toList(),
+            onChanged: (String? newValue) {
+              if (newValue != null) {
+                setState(() {
+                  _selectedStatus = newValue;
+                });
+                _onSearchOrFilterChanged();
+              }
+            },
+          ),
+        ),
+      );
+    });
   }
 
   Widget _buildOrdersBody(BuildContext context) {
@@ -372,7 +392,7 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
     final isActive = order.status == 'Active';
     final isDownloadable = isActive || order.status == 'Claim Approved';
 
-    return PremiumCard(
+      return PremiumCard(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -383,20 +403,20 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
+                  color: AppColors.adaptiveSurface(context),
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.ink.withValues(alpha: 0.04),
+                      color: AppColors.adaptiveInk(context).withValues(alpha: 0.04),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
                   ],
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.shield_outlined,
                   size: 24,
-                  color: AppColors.ink,
+                  color: AppColors.adaptiveInk(context),
                 ),
               ),
               const SizedBox(width: 16),
@@ -409,11 +429,11 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
                         order.product,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.3,
-                          color: AppColors.ink,
+                          color: AppColors.adaptiveInk(context),
                         ),
                       ),
                     if (hasProduct) const SizedBox(height: 4),
@@ -424,7 +444,7 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
                       style: TextStyle(
                         fontSize: hasProduct ? 13 : 15,
                         fontWeight: hasProduct ? FontWeight.w500 : FontWeight.w600,
-                        color: AppColors.bodyGrey,
+                        color: AppColors.adaptiveBodyGrey(context),
                       ),
                     ),
                   ],
@@ -443,10 +463,10 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
 
           Container(
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: AppColors.adaptiveSurface(context),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: AppColors.border.withValues(alpha: 0.5),
+                color: AppColors.adaptiveBorder(context).withValues(alpha: 0.5),
               ),
             ),
             child: IntrinsicHeight(
@@ -465,7 +485,7 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
                   VerticalDivider(
                     width: 1,
                     thickness: 1,
-                    color: AppColors.border.withValues(alpha: 0.5),
+                    color: AppColors.adaptiveBorder(context).withValues(alpha: 0.5),
                   ),
                   Expanded(
                     child: Padding(
@@ -482,7 +502,7 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
           ),
 
           const SizedBox(height: 24),
-          const FadedDivider(),
+          FadedDivider(),
           const SizedBox(height: 16),
 
           if (isPayNow)
@@ -492,8 +512,8 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
                   child: FilledButton(
                     onPressed: () => _processPayment(context, order),
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.ink,
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppColors.adaptiveInk(context),
+                      foregroundColor: Theme.of(context).scaffoldBackgroundColor,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -538,7 +558,7 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
                   child: TextButton(
                     onPressed: () => _openPolicyDetails(order),
                     style: TextButton.styleFrom(
-                      foregroundColor: AppColors.ink,
+                      foregroundColor: AppColors.adaptiveInk(context),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -560,13 +580,13 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
                     ),
                   ),
                 ),
-                Container(width: 1, height: 24, color: AppColors.border.withValues(alpha: 0.5)),
+                Container(width: 1, height: 24, color: AppColors.adaptiveBorder(context).withValues(alpha: 0.5)),
                 Expanded(
                   child: TextButton(
                     onPressed: isDownloadable ? () {} : null,
                     style: TextButton.styleFrom(
-                      foregroundColor: AppColors.ink,
-                      disabledForegroundColor: AppColors.labelGrey,
+                      foregroundColor: AppColors.adaptiveInk(context),
+                      disabledForegroundColor: AppColors.adaptiveBodyGrey(context),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -679,43 +699,53 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
   }
 
   Widget _buildPaginationButton(String label, {bool isEnabled = true}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: isEnabled ? Colors.white : AppColors.surface,
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: isEnabled ? AppColors.ink : const Color(0xFFC7C7CC),
+    return Builder(builder: (context) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.adaptiveSurface(context),
+          border: Border.all(color: AppColors.adaptiveBorder(context)),
+          borderRadius: BorderRadius.circular(10),
         ),
-      ),
-    );
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: isEnabled
+                ? AppColors.adaptiveInk(context)
+                : AppColors.adaptiveBodyGrey(context),
+          ),
+        ),
+      );
+    });
   }
 
   Widget _buildPaginationNumber(String number, {bool isActive = false}) {
-    return Container(
-      width: 34,
-      height: 34,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: isActive ? AppColors.inkStrong : Colors.white,
-        border: Border.all(color: isActive ? AppColors.inkStrong : AppColors.border),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        number,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: isActive ? Colors.white : AppColors.ink,
+    return Builder(builder: (context) {
+      return Container(
+        width: 34,
+        height: 34,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isActive ? AppColors.adaptiveInk(context) : AppColors.adaptiveSurface(context),
+          border: Border.all(
+            color: isActive ? AppColors.adaptiveInk(context) : AppColors.adaptiveBorder(context),
+          ),
+          borderRadius: BorderRadius.circular(10),
         ),
-      ),
-    );
+        child: Text(
+          number,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: isActive
+                ? (Theme.of(context).brightness == Brightness.dark ? Colors.black : Colors.white)
+                : AppColors.adaptiveInk(context),
+          ),
+        ),
+      );
+    });
   }
 
   Widget _buildStatItem({
@@ -737,7 +767,7 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
               style: TextStyle(
                 fontSize: isPrimary ? 22 : 17,
                 fontWeight: FontWeight.w700,
-                color: AppColors.ink,
+                color: AppColors.adaptiveInk(context),
                 height: 1.1,
               ),
             ),
@@ -747,9 +777,9 @@ class _MyOrdersViewState extends State<_MyOrdersView> {
             label,
             textAlign: TextAlign.center,
             maxLines: 1,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
-              color: AppColors.bodyGrey,
+              color: AppColors.adaptiveBodyGrey(context),
               fontWeight: FontWeight.w500,
             ),
           ),

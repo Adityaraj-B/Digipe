@@ -22,6 +22,8 @@ import 'core/widgets/tampered_device_warning.dart';
 import 'core/widgets/splash_screen.dart';
 import 'core/utils/error_scrubber.dart';
 import 'core/services/notification_service.dart';
+import 'core/theme/app_theme.dart';
+import 'core/theme/theme_cubit.dart';
 
 // Geofencing Imports
 import 'features/geofencing/services/geofence_api_service.dart';
@@ -110,6 +112,10 @@ void main() async {
     ),
   );
 
+  // Theme cubit — restore saved preference
+  final themeCubit = ThemeCubit();
+  await themeCubit.init(prefs);
+
   runApp(
     MultiRepositoryProvider(
       providers: [
@@ -126,6 +132,7 @@ void main() async {
       ],
       child: MultiBlocProvider(
         providers: [
+          BlocProvider<ThemeCubit>.value(value: themeCubit),
           BlocProvider(
             create: (context) => AuthBloc(authRepository: context.read<AuthRepository>())..add(AuthCheckRequested()),
           ),
@@ -154,113 +161,71 @@ void main() async {
   );
 }
 
-/// A custom page-transition builder that gives every pushed route a fluid
-/// fade + slight slide-up + scale-in, replacing the default platform
-/// transition with something more polished and consistent everywhere.
-class _FluidPageTransitionsBuilder extends PageTransitionsBuilder {
-  const _FluidPageTransitionsBuilder();
-
-  @override
-  Widget buildTransitions<T>(
-      PageRoute<T> route,
-      BuildContext context,
-      Animation<double> animation,
-      Animation<double> secondaryAnimation,
-      Widget child,
-      ) {
-    final curved = CurvedAnimation(
-      parent: animation,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-    );
-
-    final secondaryCurved = CurvedAnimation(
-      parent: secondaryAnimation,
-      curve: Curves.easeInCubic,
-      reverseCurve: Curves.easeOutCubic,
-    );
-
-    return FadeTransition(
-      opacity: curved,
-      child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0.0, 0.02),
-          end: Offset.zero,
-        ).animate(curved),
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: Offset.zero,
-            end: const Offset(-0.02, 0.0),
-          ).animate(secondaryCurved),
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'DIGIPe',
-      navigatorKey: navigatorKey,
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        fontFamily: 'Poppins',
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFF5A623),
-          brightness: Brightness.light,
-        ),
-        scaffoldBackgroundColor: const Color(0xFF0D0D0D),
-        splashColor: Colors.transparent,
-        highlightColor: Colors.transparent,
-        pageTransitionsTheme: const PageTransitionsTheme(
-          builders: {
-            TargetPlatform.android: _FluidPageTransitionsBuilder(),
-            TargetPlatform.iOS: _FluidPageTransitionsBuilder(),
-          },
-        ),
-      ),
-      onGenerateRoute: (settings) {
-        if (settings.name == '/store-offer') {
-          final args = settings.arguments as Map<String, dynamic>?;
-          return MaterialPageRoute(
-            builder: (context) => StoreOfferScreen(
-              storeId: args?['storeId'] ?? '',
-              couponId: args?['couponId'],
-            ),
-          );
-        }
-        if (settings.name == '/vouchers') {
-          return MaterialPageRoute(builder: (_) => const HubbleStoreScreen());
-        }
-        return null;
-      },
-      home: BlocBuilder<AuthBloc, AuthState>(
-        builder: (context, state) {
-          return AnimatedSwitcher(
-            duration: const Duration(milliseconds: 350),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            transitionBuilder: (child, animation) {
-              return FadeTransition(
-                opacity: animation,
-                child: ScaleTransition(
-                  scale: Tween<double>(begin: 0.98, end: 1.0).animate(
-                    CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-                  ),
-                  child: child,
+    return BlocBuilder<ThemeCubit, ThemeMode>(
+      builder: (context, themeMode) {
+        // Update system UI overlay based on active brightness
+        final isDark = themeMode == ThemeMode.dark ||
+            (themeMode == ThemeMode.system &&
+                MediaQuery.platformBrightnessOf(context) == Brightness.dark);
+        SystemChrome.setSystemUIOverlayStyle(
+          SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+            systemNavigationBarColor: isDark ? const Color(0xFF0D0D0D) : const Color(0xFFF9FAFB),
+            systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          ),
+        );
+
+        return MaterialApp(
+          title: 'DIGIPE',
+          navigatorKey: navigatorKey,
+          debugShowCheckedModeBanner: false,
+          themeMode: themeMode,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          onGenerateRoute: (settings) {
+            if (settings.name == '/store-offer') {
+              final args = settings.arguments as Map<String, dynamic>?;
+              return MaterialPageRoute(
+                builder: (context) => StoreOfferScreen(
+                  storeId: args?['storeId'] ?? '',
+                  couponId: args?['couponId'],
                 ),
               );
+            }
+            if (settings.name == '/vouchers') {
+              return MaterialPageRoute(builder: (_) => const HubbleStoreScreen());
+            }
+            return null;
+          },
+          home: BlocBuilder<AuthBloc, AuthState>(
+            builder: (context, state) {
+              return AnimatedSwitcher(
+                duration: const Duration(milliseconds: 350),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, animation) {
+                  return FadeTransition(
+                    opacity: animation,
+                    child: ScaleTransition(
+                      scale: Tween<double>(begin: 0.98, end: 1.0).animate(
+                        CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+                      ),
+                      child: child,
+                    ),
+                  );
+                },
+                child: _buildHomeForState(state),
+              );
             },
-            child: _buildHomeForState(state),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 

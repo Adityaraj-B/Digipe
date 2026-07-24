@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:screen_protector/screen_protector.dart';
+import '../../../core/widgets/Cards.dart';
 import '../bloc/redemption_bloc.dart';
 import '../models/voucher_models.dart';
 
@@ -49,7 +50,7 @@ class _VoucherProcessingScreenState extends State<VoucherProcessingScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF9FAFB),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
           title: const Text('Redeem Voucher'),
           backgroundColor: const Color(0xFF131313),
@@ -108,7 +109,7 @@ class _VoucherProcessingScreenState extends State<VoucherProcessingScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const CircularProgressIndicator(color: Color(0xFFF5A623)),
+            CircularProgressIndicator(color: AppColors.adaptiveInk(context)),
             const SizedBox(height: 32),
             Text(
               message,
@@ -305,7 +306,7 @@ class _CredentialRow extends StatelessWidget {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.copy, size: 20, color: Color(0xFFF5A623)),
+                icon: Icon(Icons.copy, size: 20, color: AppColors.adaptiveInk(context)),
                 onPressed: () {
                   Clipboard.setData(ClipboardData(text: value));
                   ScaffoldMessenger.of(context).showSnackBar(

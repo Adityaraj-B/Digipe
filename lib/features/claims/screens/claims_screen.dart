@@ -144,7 +144,6 @@ class _ClaimsScreenState extends State<ClaimsScreen>
   void _showAttachmentOptions(int index) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -199,7 +198,7 @@ class _ClaimsScreenState extends State<ClaimsScreen>
     return BlocProvider.value(
       value: context.read<ClaimsBloc>(),
       child: Scaffold(
-        backgroundColor: AppColors.surface,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: SafeArea(
           bottom: false,
           child: PremiumEntrance(
@@ -210,9 +209,12 @@ class _ClaimsScreenState extends State<ClaimsScreen>
                   subtitle: 'Raise a new claim or track existing ones.',
                   bottom: TabBar(
                     controller: _tabController,
-                    indicatorColor: AppColors.inkStrong,
-                    labelColor: AppColors.inkStrong,
-                    unselectedLabelColor: AppColors.bodyGrey,
+                    indicatorColor: Theme.of(context).colorScheme.onSurface,
+                    labelColor: Theme.of(context).colorScheme.onSurface,
+                    unselectedLabelColor: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.5),
                     labelStyle: const TextStyle(
                         fontSize: 15, fontWeight: FontWeight.w600),
                     tabs: const [
@@ -467,12 +469,12 @@ class _ClaimsScreenState extends State<ClaimsScreen>
                                     : (isCompulsory && url == null
                                         ? AppColors.dangerBg
                                             .withValues(alpha: 0.2)
-                                        : AppColors.surface),
+                                        : AppColors.adaptiveSurface(context)),
                                 border: Border.all(
                                   color: isCompulsory && url == null
                                       ? AppColors.dangerFg
                                           .withValues(alpha: 0.5)
-                                      : AppColors.border,
+                                      : AppColors.adaptiveBorder(context),
                                   style: url != null
                                       ? BorderStyle.solid
                                       : BorderStyle.none,
@@ -536,7 +538,7 @@ class _ClaimsScreenState extends State<ClaimsScreen>
                                                   fontSize: 14,
                                                   color: isCompulsory
                                                       ? AppColors.dangerFg
-                                                      : AppColors.ink,
+                                                      : AppColors.adaptiveInk(context),
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                               ),
@@ -566,7 +568,7 @@ class _ClaimsScreenState extends State<ClaimsScreen>
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(vertical: 24),
                         decoration: BoxDecoration(
-                          color: AppColors.surface,
+                          color: AppColors.adaptiveSurface(context),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: CustomPaint(
@@ -731,11 +733,11 @@ class _ClaimsScreenState extends State<ClaimsScreen>
           _tabController.animateTo(1);
         },
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.surface,
-          foregroundColor: AppColors.ink,
+          backgroundColor: AppColors.adaptiveSurface(context),
+          foregroundColor: AppColors.adaptiveInk(context),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: AppColors.border),
+            side: BorderSide(color: AppColors.adaptiveBorder(context)),
           ),
           elevation: 0,
         ),
@@ -815,6 +817,7 @@ class _ClaimsScreenState extends State<ClaimsScreen>
                 initialValue: _filterStatus,
                 isDense: true,
                 isExpanded: true,
+                dropdownColor: Theme.of(context).cardColor,
                 decoration: _inputDecoration('').copyWith(
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -827,8 +830,10 @@ class _ClaimsScreenState extends State<ClaimsScreen>
                       status,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.adaptiveInk(context)),
                     ),
                   );
                 }).toList(),
@@ -937,7 +942,6 @@ class _ClaimsScreenState extends State<ClaimsScreen>
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
       isScrollControlled: true,
       constraints:
           BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
@@ -954,12 +958,12 @@ class _ClaimsScreenState extends State<ClaimsScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Flexible(
+                  Flexible(
                     child: Text('Claim Details',
                         style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.ink)),
+                            color: Theme.of(context).colorScheme.onSurface)),
                   ),
                   const SizedBox(width: 12),
                   StatusChip(
@@ -970,7 +974,7 @@ class _ClaimsScreenState extends State<ClaimsScreen>
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
+                  color: AppColors.adaptiveSurface(context),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
@@ -1035,8 +1039,8 @@ class _ClaimsScreenState extends State<ClaimsScreen>
                 child: ElevatedButton(
                   onPressed: () => Navigator.pop(context),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.ink,
-                    foregroundColor: Colors.white,
+                    backgroundColor: AppColors.adaptiveInk(context),
+                    foregroundColor: Theme.of(context).scaffoldBackgroundColor,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16)),
                   ),
@@ -1053,23 +1057,30 @@ class _ClaimsScreenState extends State<ClaimsScreen>
   }
 
   InputDecoration _inputDecoration(String hint) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(fontSize: 14, color: AppColors.labelGrey),
+      hintStyle: TextStyle(
+          fontSize: 14,
+          color: isDark
+              ? const Color(0xFF8E8E93)
+              : AppColors.labelGrey),
       filled: true,
-      fillColor: AppColors.surface,
+      fillColor: AppColors.adaptiveSurface(context),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide.none,
+        borderSide: BorderSide(color: AppColors.adaptiveBorder(context)),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide.none,
+        borderSide: BorderSide(color: AppColors.adaptiveBorder(context)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: AppColors.inkStrong, width: 1.5),
+        borderSide: BorderSide(
+            color: isDark ? const Color(0xFFF5A623) : AppColors.adaptiveInk(context),
+            width: 1.5),
       ),
     );
   }
@@ -1083,10 +1094,10 @@ class _FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w700,
-          color: AppColors.valueDark,
+          color: Theme.of(context).colorScheme.onSurface,
           letterSpacing: 0.5),
     );
   }

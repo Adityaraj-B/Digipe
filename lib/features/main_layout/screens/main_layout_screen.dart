@@ -39,68 +39,78 @@ class _MainLayoutViewState extends State<_MainLayoutView> {
         final isForward = state.currentIndex >= _previousIndex;
         _previousIndex = state.currentIndex;
 
-        return Scaffold(
-          backgroundColor: const Color(0xFFF9FAFB),
-          appBar: _buildAppBar(context),
-          body: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 320),
-            reverseDuration: const Duration(milliseconds: 220),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            layoutBuilder: (currentChild, previousChildren) {
-              return Stack(
-                alignment: Alignment.topCenter,
-                children: [
-                  ...previousChildren,
-                  if (currentChild != null) currentChild,
-                ],
-              );
-            },
-            transitionBuilder: (Widget child, Animation<double> animation) {
-              final slideDistance = isForward ? 0.04 : -0.04;
-              final offsetAnimation = Tween<Offset>(
-                begin: Offset(0.0, slideDistance),
-                end: Offset.zero,
-              ).animate(
-                CurvedAnimation(
-                  parent: animation,
-                  curve: Curves.easeOutCubic,
-                  reverseCurve: Curves.easeInCubic,
-                ),
-              );
-
-              final fadeAnimation = CurvedAnimation(
-                parent: animation,
-                curve: const Interval(0.0, 0.85, curve: Curves.easeOut),
-                reverseCurve: const Interval(0.0, 0.85, curve: Curves.easeIn),
-              );
-
-              final scaleAnimation = Tween<double>(
-                begin: 0.985,
-                end: 1.0,
-              ).animate(
-                CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-              );
-
-              return FadeTransition(
-                opacity: fadeAnimation,
-                child: SlideTransition(
-                  position: offsetAnimation,
-                  child: ScaleTransition(
-                    scale: scaleAnimation,
-                    child: child,
+        return PopScope(
+          canPop: state.currentIndex == 0,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            if (state.currentIndex != 0) {
+              context.read<BottomNavBloc>().add(TabChanged(0));
+            }
+          },
+          child: Scaffold(
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            appBar: _buildAppBar(context),
+            body: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 320),
+              reverseDuration: const Duration(milliseconds: 220),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              layoutBuilder: (currentChild, previousChildren) {
+                return Stack(
+                  alignment: Alignment.topCenter,
+                  children: [
+                    ...previousChildren,
+                    if (currentChild != null) currentChild,
+                  ],
+                );
+              },
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                final slideDistance = isForward ? 0.04 : -0.04;
+                final offsetAnimation = Tween<Offset>(
+                  begin: Offset(0.0, slideDistance),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                    reverseCurve: Curves.easeInCubic,
                   ),
-                ),
-              );
-            },
-            child: KeyedSubtree(
-              key: ValueKey<int>(state.currentIndex),
-              child: _buildBody(state.currentIndex),
+                );
+
+                final fadeAnimation = CurvedAnimation(
+                  parent: animation,
+                  curve: const Interval(0.0, 0.85, curve: Curves.easeOut),
+                  reverseCurve: const Interval(0.0, 0.85, curve: Curves.easeIn),
+                );
+
+                final scaleAnimation = Tween<double>(
+                  begin: 0.985,
+                  end: 1.0,
+                ).animate(
+                  CurvedAnimation(
+                      parent: animation, curve: Curves.easeOutCubic),
+                );
+
+                return FadeTransition(
+                  opacity: fadeAnimation,
+                  child: SlideTransition(
+                    position: offsetAnimation,
+                    child: ScaleTransition(
+                      scale: scaleAnimation,
+                      child: child,
+                    ),
+                  ),
+                );
+              },
+              child: KeyedSubtree(
+                key: ValueKey<int>(state.currentIndex),
+                child: _buildBody(state.currentIndex),
+              ),
             ),
+            extendBody: true,
+            bottomNavigationBar:
+                _buildBottomNavigationBar(context, state.currentIndex),
           ),
-          extendBody: true,
-          bottomNavigationBar:
-              _buildBottomNavigationBar(context, state.currentIndex),
         );
       },
     );
@@ -123,8 +133,10 @@ class _MainLayoutViewState extends State<_MainLayoutView> {
       titleSpacing: 24,
       title: Image.asset(
         'assets/images/Logo White.png',
-        height: 32, // Adjust height as necessary
+        height: 32,
         fit: BoxFit.contain,
+        color: Colors.white,
+        colorBlendMode: BlendMode.srcIn,
       ),
       actions: [
         BlocBuilder<AuthBloc, AuthState>(
@@ -247,6 +259,8 @@ class _MainLayoutViewState extends State<_MainLayoutView> {
 
   Widget _buildBottomNavigationBar(BuildContext context, int currentIndex) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final navBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
 
     return Container(
       padding: EdgeInsets.only(
@@ -263,16 +277,18 @@ class _MainLayoutViewState extends State<_MainLayoutView> {
               constraints: const BoxConstraints(maxWidth: 480),
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: navBg,
                   borderRadius: BorderRadius.circular(28),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
+                      color:
+                          Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
                       blurRadius: 24,
                       offset: const Offset(0, 8),
                     ),
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
+                      color:
+                          Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -302,7 +318,7 @@ class _MainLayoutViewState extends State<_MainLayoutView> {
                       _NavItemData(
                         icon: Icons.card_giftcard_outlined,
                         activeIcon: Icons.card_giftcard,
-                        label: 'Hubble',
+                        label: 'Gift Card',
                       ),
                       _NavItemData(
                           icon: Icons.shield_outlined,
@@ -339,13 +355,15 @@ class _AnimatedNavBar extends StatelessWidget {
     required this.items,
   });
 
-  static const _selectedColor = Color(0xFF000000);
-  static const _unselectedColor = Color(0xFF8E8E93);
-
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final navBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final selectedColor = isDark ? Colors.white : const Color(0xFF000000);
+    final unselectedColor =
+        isDark ? const Color(0xFF636366) : const Color(0xFF8E8E93);
     return Container(
-      color: Colors.white,
+      color: navBg,
       height: 64,
       child: Row(
         children: List.generate(items.length, (index) {
@@ -375,7 +393,7 @@ class _AnimatedNavBar extends StatelessWidget {
                             isSelected ? item.activeIcon : item.icon,
                             size: 24,
                             color:
-                                Color.lerp(_unselectedColor, _selectedColor, t),
+                                Color.lerp(unselectedColor, selectedColor, t),
                           ),
                         );
                       },
@@ -390,7 +408,7 @@ class _AnimatedNavBar extends StatelessWidget {
                         height: 1.5,
                         fontWeight:
                             isSelected ? FontWeight.w700 : FontWeight.w500,
-                        color: isSelected ? _selectedColor : _unselectedColor,
+                        color: isSelected ? selectedColor : unselectedColor,
                       ),
                       child: Text(item.label),
                     ),

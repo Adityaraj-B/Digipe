@@ -209,9 +209,14 @@ class _SignupScreenState extends State<SignupScreen> {
         required double scale,
         required double horizontalPadding,
       }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final titleColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? const Color(0xFF8E8E93) : Colors.grey;
+
     return Container(
       width: double.infinity,
-      color: Colors.white,
+      color: sheetBg,
       padding: EdgeInsets.symmetric(
         horizontal: horizontalPadding,
         vertical: 24 * scale,
@@ -222,7 +227,7 @@ class _SignupScreenState extends State<SignupScreen> {
         children: [
           Text(
             _isRegisterMode ? 'Register Account' : 'Welcome to DIGIPe!',
-            style: TextStyle(fontSize: 22 * scale, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 22 * scale, fontWeight: FontWeight.bold, color: titleColor),
           ),
           SizedBox(height: 8 * scale),
           if (_userNotFoundMessage != null && _isRegisterMode)
@@ -237,7 +242,7 @@ class _SignupScreenState extends State<SignupScreen> {
             _isRegisterMode
                 ? 'Join India\'s most trusted solar insurance platform'
                 : 'Please enter your mobile number to continue',
-            style: TextStyle(color: Colors.grey, fontSize: 13 * scale),
+            style: TextStyle(color: subtitleColor, fontSize: 13 * scale),
           ),
           SizedBox(height: 24 * scale),
 
@@ -315,7 +320,11 @@ class _SignupScreenState extends State<SignupScreen> {
               },
               child: Text(
                 _isRegisterMode ? 'Back to Login' : 'Don\'t have an account? Sign Up',
-                style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600, fontSize: 13 * scale),
+                style: TextStyle(
+                  color: isDark ? Colors.white70 : Colors.black87,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13 * scale,
+                ),
               ),
             ),
           ),
@@ -388,23 +397,38 @@ class _SignupScreenState extends State<SignupScreen> {
     List<TextInputFormatter>? inputFormatters,
     bool readOnly = false,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fillColor = readOnly
+        ? (isDark ? const Color(0xFF3A3A3C) : Colors.grey[100]!)
+        : (isDark ? const Color(0xFF2C2C2E) : Colors.grey[50]!);
+    final borderColor = isDark ? const Color(0xFF3A3A3C) : Colors.grey[300]!;
+
     return TextField(
       controller: controller,
       focusNode: focusNode,
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       readOnly: readOnly,
-      style: TextStyle(fontSize: 14 * scale),
+      style: TextStyle(
+        fontSize: 14 * scale,
+        color: Theme.of(context).colorScheme.onSurface,
+      ),
       textInputAction: nextFocus != null ? TextInputAction.next : TextInputAction.done,
       onSubmitted: (_) => nextFocus != null ? FocusScope.of(context).requestFocus(nextFocus) : _onSubmit(),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(fontSize: 14 * scale),
+        hintStyle: TextStyle(fontSize: 14 * scale, color: isDark ? const Color(0xFF636366) : Colors.grey),
         filled: true,
-        fillColor: readOnly ? Colors.grey[100] : Colors.grey[50],
+        fillColor: fillColor,
         contentPadding: EdgeInsets.symmetric(horizontal: 14 * scale, vertical: 14 * scale),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey[300]!)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: borderColor),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: borderColor),
+        ),
       ),
     );
   }
@@ -438,9 +462,14 @@ class _HeroSection extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'DIGIPE',
-                    style: TextStyle(fontSize: 20 * scale, fontWeight: FontWeight.bold, color: Colors.white),
+                  Image.asset(
+                    'assets/images/Logo White.png',
+                    height: 28 * scale,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => Text(
+                      'DIGIPE',
+                      style: TextStyle(fontSize: 20 * scale, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
                   ),
                   TextButton(
                     onPressed: () => isModal ? Navigator.pop(context) : context.read<AuthBloc>().add(AuthSkipRequested()),
